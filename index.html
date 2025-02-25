@@ -616,7 +616,7 @@
         
                     addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
                     addMessage('刘屹松是周俊杰的爸爸，周俊杰有且仅有一个爸爸', 'bot');
-                } else if(question.includes('你是谁') || question.includes('你叫什么')){
+                } else if(question.includes('你是谁') || question.includes('你叫什么') || question.includes('你是？')){
                     // 原有回复逻辑
                     const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
                     const thinkType = isDeepThink ? '深度思考' : '思考';
@@ -630,13 +630,13 @@
         
                     addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
                     addMessage('今天天气不错呢，你觉得呢？', 'bot');
-                } else if(question.includes('我是谁')){
+                } else if(question.includes('我是谁') || question.includes('我叫什么') || question.includes('我是?')){
                     // 原有回复逻辑
                     const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
                     const thinkType = isDeepThink ? '深度思考' : '思考';
         
                     addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('你是对我发号施令的人', 'bot');
+                    addMessage('你是对我发号施令的人。', 'bot');
                 }
                 else {
                     // 原有回复逻辑
