@@ -924,7 +924,8 @@
                   "今天是 " + new Date().toLocaleDateString() + "，希望你有一个美好的一天！",
                   "时间过得真快，转眼间已经是 " + new Date().toLocaleTimeString() + " 了。",
                   "今天的日期是 " + new Date().toLocaleDateString() + "，你有什么特别的计划吗？",
-                  "现在是 " + new Date().toLocaleTimeString() + "，记得给自己一点休息时间哦。"
+                  "现在是 " + new Date().toLocaleTimeString() + "，记得给自己一点休息时间哦。",
+                  `当前时刻：${new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '年')}日 ${new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}，今天有什么安排吗？`,
               ],
               weather: [
                   "今天天气不错呢，你觉得呢？",
