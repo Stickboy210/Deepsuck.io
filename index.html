@@ -17,6 +17,12 @@
             --sidebar-bg-dark: #444444; /* 侧边栏黑夜模式背景色 */
         }
 
+            /* 其他样式保持不变，新增以下黑夜模式下的按钮样式 */
+        .dark-mode .action-btn.active {
+            background: #004080; /* 深蓝色 */
+            color: white;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             margin: 0;
@@ -597,6 +603,17 @@
             historyBtn.innerHTML = isDarkMode 
                 ? '<img src="./侧边栏白.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">' 
                 : '<img src="./侧边栏.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">';
+            localStorage.setItem('darkMode', isDarkMode);
+
+            // 在黑夜模式下，如果按钮是激活状态，切换为深蓝色
+            if (isDarkMode) {
+                document.getElementById('deepThinkBtn').style.backgroundColor = '#004080';
+                document.getElementById('webSearchBtn').style.backgroundColor = '#004080';
+            } else {
+                document.getElementById('deepThinkBtn').style.backgroundColor = '';
+                document.getElementById('webSearchBtn').style.backgroundColor = '';
+            }
+        
             localStorage.setItem('darkMode', isDarkMode);
         }
 
