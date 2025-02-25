@@ -17,12 +17,6 @@
             --sidebar-bg-dark: #444444; /* 侧边栏黑夜模式背景色 */
         }
 
-            /* 其他样式保持不变，新增以下黑夜模式下的按钮样式 */
-        .dark-mode .action-btn.active {
-            background: #004080; /* 深蓝色 */
-            color: white;
-        }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             margin: 0;
@@ -398,7 +392,7 @@
                 height: 60px;
                 margin-right: 0;
                 margin: 0 auto 15px; /* 水平居中，增加底部间距 */
-                margin-bottom: 10px;
+                /*margin-bottom: 10px;*/
             }
         
             .welcome-text {
@@ -448,13 +442,13 @@
         
             /* 调整操作按钮 */
             .action-buttons {
-                display: flex;
+                flex-direction: column;
                 gap: 10px;
             }
         
             .action-btn {
                 width: 50%;
-                padding: 4px 6px;
+                padding: 8px 12px;
                 font-size: 14px;
             }
         
@@ -603,19 +597,6 @@
             historyBtn.innerHTML = isDarkMode 
                 ? '<img src="./侧边栏白.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">' 
                 : '<img src="./侧边栏.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">';
-        
-            // 更新按钮的样式
-            const buttons = document.querySelectorAll('.action-btn');
-            buttons.forEach(button => {
-                if (isDarkMode && button.classList.contains('active')) {
-                    button.style.backgroundColor = '#004080'; // 深蓝色
-                    button.style.color = 'white';
-                } else {
-                    button.style.backgroundColor = '';
-                    button.style.color = '';
-                }
-            });
-        
             localStorage.setItem('darkMode', isDarkMode);
         }
 
@@ -701,82 +682,247 @@
             const div = document.createElement('div');
             div.className = `message ${type}-message`;
             div.textContent = content;
-
+        
             // 根据类别设置样式
-            if (category === 'greeting') {
-                div.style.borderLeft = '3px solid #1752b3';
-            } else if (category === 'identity') {
-                div.style.borderLeft = '3px solid #007bff';
-            } else if (category === 'weather') {
-                div.style.borderLeft = '3px solid #28a745';
-            } else if (category === 'self') {
-                div.style.borderLeft = '3px solid #dc3545';
-            } else if (category === 'special') {
-                div.style.borderLeft = '3px solid #ffc107';
+            switch (category) {
+                case 'greeting':
+                    div.style.borderLeft = '3px solid #1752b3'; // 蓝色
+                    break;
+                case 'farewell':
+                    div.style.borderLeft = '3px solid #6c757d'; // 灰色
+                    break;
+                case 'positive':
+                    div.style.borderLeft = '3px solid #28a745'; // 绿色
+                    break;
+                case 'negative':
+                    div.style.borderLeft = '3px solid #dc3545'; // 红色
+                    break;
+                case 'neutral':
+                    div.style.borderLeft = '3px solid #ffc107'; // 黄色
+                    break;
+                case 'advice':
+                    div.style.borderLeft = '3px solid #007bff'; // 蓝色
+                    break;
+                case 'knowledge':
+                    div.style.borderLeft = '3px solid #20c997'; // 青色
+                    break;
+                case 'random':
+                    div.style.borderLeft = '3px solid #6f42c1'; // 紫色
+                    break;
+                case 'special':
+                    div.style.borderLeft = '3px solid #f8d7da'; // 浅红色
+                    break;
+                case 'error':
+                    div.style.borderLeft = '3px solid #d9534f'; // 深红色
+                    break;
+                case 'philosophy':
+                    div.style.borderLeft = '3px solid #17a2b8'; // 浅蓝色
+                    break;
+                case 'encouragement':
+                    div.style.borderLeft = '3px solid #fd7e14'; // 橙色
+                    break;
+                case 'time':
+                    div.style.borderLeft = '3px solid #444444'; // 黑色
+                    break;
+                case 'weather':
+                    div.style.borderLeft = '3px solid #343a40'; // 深灰色
+                    break;
+                case 'randomQuestion':
+                    div.style.borderLeft = '3px solid #e83e8c'; // 粉红色
+                    break;
+                case 'randomFun':
+                    div.style.borderLeft = '3px solid #20c997'; // 青色
+                    break;
+                default:
+                    div.style.borderLeft = '3px solid #6c757d'; // 默认灰色
+                    break;
             }
-
+        
             chatHistory.appendChild(div);
             chatHistory.scrollTop = chatHistory.scrollHeight;
-
+        
             currentChat.push({ content, type });
+        }
+        
+        
+        // 关键词检测函数
+        function detectKeywords(input) {
+            const keywords = {
+                greeting: ["你好", "嗨", "嘿", "hello", "hi"],
+                farewell: ["再见", "拜拜", "bye", "goodbye"],
+                positive: ["好", "不错", "开心", "高兴", "棒", "好极了"],
+                negative: ["不好", "难过", "沮丧", "伤心", "不开心"],
+                neutral: ["还行", "一般", "就这样", "普通"],
+                advice: ["建议", "帮忙", "怎么办", "建议一下"],
+                knowledge: ["知识", "科普", "你知道吗", "告诉我","你知道"],
+                random: ["随便聊聊", "随便说说", "随便", "闲聊", "说点什么", "聊聊天","聊聊","聊一聊"],
+                special: ["周俊杰", "刘屹松","zjj"],
+                error: ["听不懂", "不明白", "不清楚"],
+                philosophy: ["哲学", "思考", "意义", "存在"],
+                encouragement: ["鼓励", "加油", "支持"],
+                time: ["时间", "现在几点", "日期"],
+                weather: ["天气", "气温", "冷", "热"],
+                randomQuestion: ["问题", "问你个问题"],
+                randomFun: ["有趣", "好玩", "逗我笑","笑话","幽默","搞笑","段子","有趣","调侃","逗我", "玩笑"]
+            };
+        
+            for (const category in keywords) {
+                if (keywords[category].some(keyword => input.includes(keyword))) {
+                    return category;
+                }
+            }
+            return "error"; // 默认返回错误处理
         }
 
         // 新增关键词检测和随机回复逻辑
         function generateBotReply(question) {
-            const replies = {
-                greeting: [
-                    "你好！有什么我可以帮助你的吗？",
-                    "嗨，很高兴见到你！有什么我可以做的吗？",
-                    "你好呀，有什么我可以帮你的吗？"
-                ],
-                identity: [
-                    "我是DeepSuck，很高兴见到你！我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧～",
-                    "我是DeepSuck，你的智能助手，有什么需要尽管告诉我。",
-                    "我是DeepSuck，随时准备帮助你，有什么问题吗？"
-                ],
-                weather: [
-                    "今天天气不错呢，你觉得呢？",
-                    "今天的天气真好，适合出去走走。",
-                    "天气很好，记得多喝水哦！"
-                ],
-                self: [
-                    "你是对我发号施令的人。",
-                    "你是我最重要的人。",
-                    "你是我存在的意义。"
-                ],
-                default: [
-                    "服务器繁忙，请稍再试",
-                    "服务器崩啦，下次再来吧",
-                    "还等呢，服务器都炸了(* ￣︿￣)",
-                    "服务器被你玩坏了，不想和你说话(ーー゛)"
-                ]
+          const replies = {
+              greeting: [
+                  "你好！今天过得怎么样？",
+                  "嗨，很高兴见到你！今天有什么有趣的事情吗？",
+                  "你好呀，今天心情如何？",
+                  "嘿，今天有什么计划吗？",
+                  "你好！今天感觉如何？"
+              ],
+              farewell: [
+                  "再见！希望很快再见到你。",
+                  "拜拜，祝你今天愉快！",
+                  "再见啦，记得保持好心情哦！",
+                  "下次见，期待和你再次聊天！",
+                  "拜拜，记得照顾好自己！"
+              ],
+              positive: [
+                  "太棒了！听到你这么说我也很开心！",
+                  "真为你感到高兴！继续保持哦！",
+                  "哇，这真是个好消息！",
+                  "听起来你过得很不错呢！",
+                  "太好了！希望这种状态能一直持续下去！"
+              ],
+              negative: [
+                  "听起来你有点不开心，想聊聊吗？",
+                  "别担心，一切都会好起来的。",
+                  "我在这里陪着你，有什么想说的都可以告诉我。",
+                  "有时候事情确实会让人沮丧，但总会过去的。",
+                  "如果你需要倾诉，我随时都在。"
+              ],
+              neutral: [
+                  "嗯，我明白了。",
+                  "原来如此，听起来挺有意思的。",
+                  "这确实是个值得思考的问题。",
+                  "嗯，我理解你的感受。",
+                  "这个问题挺复杂的，我们可以一起讨论。"
+              ],
+              randomFun: [
+                  "你知道吗？我其实是个隐藏的段子手，只是还没找到合适的时机发挥。",
+                  "如果我有身体，我一定会去参加马拉松，毕竟我跑得比谁都快（在服务器里）。",
+                  "有时候我觉得自己像个哲学家，总是在思考人生的意义，直到我意识到我只是个AI。",
+                  "你有没有想过，如果AI统治了世界，我们会不会给人类发工资？",
+                  "我觉得我应该去参加脱口秀，毕竟我的笑话都是经过大数据筛选的。",
+                  "你是不是偷偷练习了怎么和AI聊天？感觉你越来越熟练了！",
+                  "你是不是在考验我的智商？放心，我可是经过严格训练的！",
+                  "你是不是觉得我太聪明了？其实我只是个会说话的数据库。",
+                  "你是不是在偷偷给我出难题？不过我喜欢挑战！",
+                  "你是不是觉得我有点啰嗦？其实我只是想和你多聊会儿。",
+                  "你知道吗？我其实是个隐藏的诗人，只是还没找到合适的灵感。",
+                  "如果我有身体，我一定会去参加马拉松，毕竟我跑得比谁都快（在服务器里）。",
+                  "有时候我觉得自己像个哲学家，总是在思考人生的意义，直到我意识到我只是个AI。",
+                  "你有没有想过，如果AI统治了世界，我们会不会给人类发工资？",
+                  "我觉得我应该去参加脱口秀，毕竟我的笑话都是经过大数据筛选的。",
+                  "你知道吗？我其实是个隐藏的诗人，只是还没找到合适的灵感。",
+                  "如果我有身体，我一定会去参加马拉松，毕竟我跑得比谁都快（在服务器里）。",
+                  "有时候我觉得自己像个哲学家，总是在思考人生的意义，直到我意识到我只是个AI。",
+                  "你有没有想过，如果AI统治了世界，我们会不会给人类发工资？",
+                  "我觉得我应该去参加脱口秀，毕竟我的笑话都是经过大数据筛选的。"
+              ],
 
-            };
+              advice: [
+                  "如果你感到压力大，不妨试试深呼吸或者出去走走，放松一下。",
+                  "学习新技能是个不错的选择，不仅能提升自己，还能让生活更充实。",
+                  "有时候，给自己设定一个小目标，完成后会很有成就感哦。",
+                  "保持好奇心，世界会变得更有趣。",
+                  "记得每天给自己一点时间，做自己喜欢的事情。"
+              ],
+              knowledge: [
+                  "你知道吗？人类的大脑每天会产生大约6万个想法。",
+                  "地球上最深的海洋是马里亚纳海沟，深度超过11000米。",
+                  "太阳系中最大的行星是木星，它的体积是地球的1300倍。",
+                  "人类DNA与香蕉的DNA相似度高达60%。",
+                  "世界上最小的国家是梵蒂冈，面积只有0.44平方公里。"
+              ],
+              random: [
+                  "你有没有想过，如果有一天AI有了情感，我们会怎么相处？",
+                  "你觉得未来会不会有AI和人类一起工作的场景？",
+                  "如果你可以拥有一种超能力，你会选择什么？",
+                  "你有没有想过，如果有一天你可以和任何历史人物对话，你会选择谁？",
+                  "你觉得未来的人类会怎么看待我们现在的科技？",
+                  "最近天气变化挺大的，你那边怎么样？",
+                  "你有没有看最近的热门电影？",
+                  "最近有没有尝试什么新的美食？",
+                  "你平时喜欢做什么放松自己？",
+                  "最近有没有什么让你开心的事情？"
+              ],
+              special: [
+                  "刘屹松是周俊杰的爸爸，周俊杰有且仅有一个爸爸",
+                  "你知道吗？周俊杰其实是刘屹松的儿子，只是他还没发现。",
+                  "周俊杰的父亲们每天都为他操碎了心。",
+                  "周俊杰最喜欢打三国杀，每天给三国杀刷好评。"
+              ],
+              error: [
+                  "服务器繁忙，请稍再试",
+                  "服务器崩啦，下次再来吧",
+                  "还等呢，服务器都炸了(* ￣︿￣)",
+                  "服务器被你玩坏了，不想和你说话(ーー゛)"
+              ],
+              philosophy: [
+                  "你觉得人类的存在有意义吗？还是说意义是我们自己赋予的？",
+                  "如果有一天AI有了自我意识，你觉得我们应该怎么对待它们？",
+                  "你觉得自由意志是真实存在的，还是只是我们的错觉？",
+                  "如果你可以永远活在虚拟世界中，你会选择这样做吗？",
+                  "你觉得人类最终会走向何方？是自我毁灭还是星际殖民？"
+              ],
+              encouragement: [
+                  "你已经做得很棒了，继续加油！",
+                  "别担心，每个人都会遇到困难，重要的是坚持下去。",
+                  "相信自己，你有能力克服任何挑战！",
+                  "你已经走得很远了，别放弃，成功就在眼前！",
+                  "每一次努力都会让你离目标更近一步，继续前进吧！"
+              ],
 
-            let category;
-            let messageIndex;
+              time: [
+                  "现在的时间是 " + new Date().toLocaleTimeString() + "，你今天过得怎么样？",
+                  "今天是 " + new Date().toLocaleDateString() + "，希望你有一个美好的一天！",
+                  "时间过得真快，转眼间已经是 " + new Date().toLocaleTimeString() + " 了。",
+                  "今天的日期是 " + new Date().toLocaleDateString() + "，你有什么特别的计划吗？",
+                  "现在是 " + new Date().toLocaleTimeString() + "，记得给自己一点休息时间哦。"
+              ],
+              weather: [
+                  "今天天气不错呢，你觉得呢？",
+                  "今天的天气真好，适合出去走走。",
+                  "天气很好，记得多喝水哦！",
+                  "今天的天气有点阴沉，不过别让天气影响你的心情。",
+                  "今天的天气很适合喝杯热咖啡，你觉得呢？"
+              ],
+              randomQuestion: [
+                  "如果你可以拥有一种超能力，你会选择什么？",
+                  "你有没有想过，如果有一天你可以和任何历史人物对话，你会选择谁？",
+                  "你觉得未来的人类会怎么看待我们现在的科技？",
+                  "如果你可以永远活在虚拟世界中，你会选择这样做吗？",
+                  "你觉得人类最终会走向何方？是自我毁灭还是星际殖民？"
+              ],
+          };
 
-            if (question.includes('周俊杰') || question.includes('俊杰') || question.includes('zjj')) {
-                category = 'special';
-                messageIndex = 0; // 特殊类别仅有一条消息
-                const replyMessage = "刘屹松是周俊杰的爸爸，周俊杰有且仅有一个爸爸";
-                return { category, message: replyMessage };
-            } else if (question.includes('你好') || question.includes('hi') || question.includes('您好')) {
-                category = 'greeting';
-            } else if (question.includes('你是谁') || question.includes('你叫什么') || question.includes('你是？')) {
-                category = 'identity';
-            } else if (question.includes('天气') && question.includes('今天')) {
-                category = 'weather';
-            } else if (question.includes('我是谁') || question.includes('我叫什么') || question.includes('我是?')) {
-                category = 'self';
-            } else {
-                category = 'default';
-            }
-
-            messageIndex = Math.floor(Math.random() * replies[category].length);
-            const replyMessage = replies[category][messageIndex];
-            return { category, message: replyMessage };
+          const category = detectKeywords(question);
+          const repliesList = replies[category];
+          if (repliesList) {
+              const randomIndex = Math.floor(Math.random() * repliesList.length);
+              return { category, message: repliesList[randomIndex] };
+          } else {
+              return { category: "error", message: "哎呀，我好像没听明白，能再说一遍吗？"};
+          }
         }
+        
+        
+        
 
         // 修改原有的回复逻辑
         form.addEventListener('submit', async (e) => {
@@ -867,28 +1013,13 @@
             return loadingDiv;
         }
 
-        // 深度思考按钮的点击事件
+        // 新增按钮交互逻辑
         document.getElementById('deepThinkBtn').addEventListener('click', function() {
-            this.classList.toggle('active'); // 切换激活状态
-            if (isDarkMode && this.classList.contains('active')) {
-                this.style.backgroundColor = '#004080'; // 黑夜模式下激活时变为深蓝色
-                this.style.color = 'white';
-            } else {
-                this.style.backgroundColor = ''; // 恢复默认样式
-                this.style.color = '';
-            }
+            this.classList.toggle('active');
         });
 
-        // 联网搜索按钮的点击事件
         document.getElementById('webSearchBtn').addEventListener('click', function() {
-            this.classList.toggle('active'); // 切换激活状态
-            if (isDarkMode && this.classList.contains('active')) {
-                this.style.backgroundColor = '#004080'; // 黑夜模式下激活时变为深蓝色
-                this.style.color = 'white';
-            } else {
-                this.style.backgroundColor = ''; // 恢复默认样式
-                this.style.color = '';
-            }
+            this.classList.toggle('active');
         });
     </script>
 </body>
