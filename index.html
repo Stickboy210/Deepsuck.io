@@ -603,16 +603,18 @@
             historyBtn.innerHTML = isDarkMode 
                 ? '<img src="./侧边栏白.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">' 
                 : '<img src="./侧边栏.svg" alt="DeepSuck" class="logo" style="width: 40px; height: 40px;">';
-            localStorage.setItem('darkMode', isDarkMode);
-
-            // 在黑夜模式下，如果按钮是激活状态，切换为深蓝色
-            if (isDarkMode) {
-                document.getElementById('deepThinkBtn').style.backgroundColor = '#004080';
-                document.getElementById('webSearchBtn').style.backgroundColor = '#004080';
-            } else {
-                document.getElementById('deepThinkBtn').style.backgroundColor = '';
-                document.getElementById('webSearchBtn').style.backgroundColor = '';
-            }
+        
+            // 更新按钮的样式
+            const buttons = document.querySelectorAll('.action-btn');
+            buttons.forEach(button => {
+                if (isDarkMode && button.classList.contains('active')) {
+                    button.style.backgroundColor = '#004080'; // 深蓝色
+                    button.style.color = 'white';
+                } else {
+                    button.style.backgroundColor = '';
+                    button.style.color = '';
+                }
+            });
         
             localStorage.setItem('darkMode', isDarkMode);
         }
@@ -865,13 +867,28 @@
             return loadingDiv;
         }
 
-        // 新增按钮交互逻辑
+        // 深度思考按钮的点击事件
         document.getElementById('deepThinkBtn').addEventListener('click', function() {
-            this.classList.toggle('active');
+            this.classList.toggle('active'); // 切换激活状态
+            if (isDarkMode && this.classList.contains('active')) {
+                this.style.backgroundColor = '#004080'; // 黑夜模式下激活时变为深蓝色
+                this.style.color = 'white';
+            } else {
+                this.style.backgroundColor = ''; // 恢复默认样式
+                this.style.color = '';
+            }
         });
 
+        // 联网搜索按钮的点击事件
         document.getElementById('webSearchBtn').addEventListener('click', function() {
-            this.classList.toggle('active');
+            this.classList.toggle('active'); // 切换激活状态
+            if (isDarkMode && this.classList.contains('active')) {
+                this.style.backgroundColor = '#004080'; // 黑夜模式下激活时变为深蓝色
+                this.style.color = 'white';
+            } else {
+                this.style.backgroundColor = ''; // 恢复默认样式
+                this.style.color = '';
+            }
         });
     </script>
 </body>
