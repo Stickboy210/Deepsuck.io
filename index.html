@@ -369,6 +369,110 @@
         .dark-mode .welcome-subtitle {
             color: var(--text-color-dark); /* 黑夜模式下欢迎文本的颜色 */
         }
+        
+        
+        /* 原有样式保持不变，新增以下媒体查询 */
+
+        @media (max-width: 768px) {
+            /* 调整容器宽度 */
+            .container {
+                max-width: 100%;
+                padding: 10px;
+            }
+        
+            /* 调整头部布局 */
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                margin-bottom: 20px;
+            }
+        
+            .logo {
+                width: 60px;
+                height: 60px;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        
+            .welcome-text {
+                text-align: left;
+            }
+        
+            .welcome-title {
+                font-size: 1.2rem;
+            }
+        
+            .welcome-subtitle {
+                font-size: 0.8rem;
+            }
+        
+            /* 调整聊天容器 */
+            .chat-container {
+                padding: 10px;
+            }
+        
+            .chat-history {
+                height: 50vh;
+            }
+        
+            .message {
+                max-width: 90%;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+        
+            /* 调整输入区域 */
+            .input-area {
+                flex-direction: column;
+                gap: 10px;
+            }
+        
+            input {
+                width: 100%;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        
+            .upload-btn, .submit-btn {
+                width: 100%;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        
+            /* 调整操作按钮 */
+            .action-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+        
+            .action-btn {
+                width: 100%;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        
+            /* 调整历史记录侧边栏 */
+            .history-sidebar {
+                width: 80%;
+                left: -80%;
+            }
+        
+            .history-item {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        
+            .new-chat-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        
+            /* 调整主题切换按钮 */
+            .theme-toggle {
+                font-size: 20px;
+                padding: 5px 10px;
+            }
+        }
 
         @media (max-width: 480px) {
             .logo {
@@ -573,29 +677,101 @@
         });
 
         // 修改addMessage函数以保存当前对话
-        function addMessage(content, type) {
+        function addMessage(content, type, category = 'default') {
             const div = document.createElement('div');
             div.className = `message ${type}-message`;
             div.textContent = content;
+
+            // 根据类别设置样式
+            if (category === 'greeting') {
+                div.style.borderLeft = '3px solid #1752b3';
+            } else if (category === 'identity') {
+                div.style.borderLeft = '3px solid #007bff';
+            } else if (category === 'weather') {
+                div.style.borderLeft = '3px solid #28a745';
+            } else if (category === 'self') {
+                div.style.borderLeft = '3px solid #dc3545';
+            } else if (category === 'special') {
+                div.style.borderLeft = '3px solid #ffc107';
+            }
+
             chatHistory.appendChild(div);
             chatHistory.scrollTop = chatHistory.scrollHeight;
 
             currentChat.push({ content, type });
         }
 
+        // 新增关键词检测和随机回复逻辑
+        function generateBotReply(question) {
+            const replies = {
+                greeting: [
+                    "你好！有什么我可以帮助你的吗？",
+                    "嗨，很高兴见到你！有什么我可以做的吗？",
+                    "你好呀，有什么我可以帮你的吗？"
+                ],
+                identity: [
+                    "我是DeepSuck，很高兴见到你！我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧～",
+                    "我是DeepSuck，你的智能助手，有什么需要尽管告诉我。",
+                    "我是DeepSuck，随时准备帮助你，有什么问题吗？"
+                ],
+                weather: [
+                    "今天天气不错呢，你觉得呢？",
+                    "今天的天气真好，适合出去走走。",
+                    "天气很好，记得多喝水哦！"
+                ],
+                self: [
+                    "你是对我发号施令的人。",
+                    "你是我最重要的人。",
+                    "你是我存在的意义。"
+                ],
+                default: [
+                    "服务器繁忙，请稍再试",
+                    "服务器崩啦，下次再来吧",
+                    "还等呢，服务器都炸了(* ￣︿￣)",
+                    "服务器被你玩坏了，不想和你说话(ーー゛)"
+                ]
+
+            };
+
+            let category;
+            let messageIndex;
+
+            if (question.includes('周俊杰') || question.includes('俊杰') || question.includes('zjj')) {
+                category = 'special';
+                messageIndex = 0; // 特殊类别仅有一条消息
+                const replyMessage = "刘屹松是周俊杰的爸爸，周俊杰有且仅有一个爸爸";
+                return { category, message: replyMessage };
+            } else if (question.includes('你好') || question.includes('hi') || question.includes('您好')) {
+                category = 'greeting';
+            } else if (question.includes('你是谁') || question.includes('你叫什么') || question.includes('你是？')) {
+                category = 'identity';
+            } else if (question.includes('天气') && question.includes('今天')) {
+                category = 'weather';
+            } else if (question.includes('我是谁') || question.includes('我叫什么') || question.includes('我是?')) {
+                category = 'self';
+            } else {
+                category = 'default';
+            }
+
+            messageIndex = Math.floor(Math.random() * replies[category].length);
+            const replyMessage = replies[category][messageIndex];
+            return { category, message: replyMessage };
+        }
+
+        // 修改原有的回复逻辑
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const question = input.value.trim();
             if (!question) return;
-        
+
             input.disabled = true;
             submitBtn.disabled = true;
-        
+
             addMessage(question, 'user');
-        
+
             const delaySeconds = Math.floor(Math.random() * 10) + 1;
             const delay = delaySeconds * 1000;
-        
+
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'loading-container';
             loadingDiv.innerHTML = `
@@ -604,49 +780,19 @@
             `;
             chatHistory.appendChild(loadingDiv);
             chatHistory.scrollTop = chatHistory.scrollHeight;
-        
+
             setTimeout(() => {
                 chatHistory.removeChild(loadingDiv);
-        
-                // 新增关键词检测逻辑
-                if (question.includes('周俊杰') || question.includes('俊杰') || question.includes('zjj')) {
-                    // 原有回复逻辑
-                    const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
-                    const thinkType = isDeepThink ? '深度思考' : '思考';
-        
-                    addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('刘屹松是周俊杰的爸爸，周俊杰有且仅有一个爸爸', 'bot');
-                } else if(question.includes('你是谁') || question.includes('你叫什么') || question.includes('你是？')){
-                    // 原有回复逻辑
-                    const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
-                    const thinkType = isDeepThink ? '深度思考' : '思考';
-        
-                    addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('我是DeepSuck，很高兴见到你！我可以帮你写代码、读文件、写作各种创意内容，请把你的任务交给我吧～', 'bot');
-                } else if(question.includes('天气') && question.includes('今天')){
-                    // 原有回复逻辑
-                    const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
-                    const thinkType = isDeepThink ? '深度思考' : '思考';
-        
-                    addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('今天天气不错呢，你觉得呢？', 'bot');
-                } else if(question.includes('我是谁') || question.includes('我叫什么') || question.includes('我是?')){
-                    // 原有回复逻辑
-                    const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
-                    const thinkType = isDeepThink ? '深度思考' : '思考';
-        
-                    addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('你是对我发号施令的人。', 'bot');
-                }
-                else {
-                    // 原有回复逻辑
-                    const isDeepThink = document.getElementById('deepThinkBtn').classList.contains('active');
-                    const thinkType = isDeepThink ? '深度思考' : '思考';
-        
-                    addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot');
-                    addMessage('服务器繁忙，请稍后再试', 'bot');
-                }
-        
+
+                // 获取回复和类别
+                const botResponse = generateBotReply(question);
+                const { category, message } = botResponse;
+
+                // 添加“思考时间”的回复
+                const thinkType = document.getElementById('deepThinkBtn').classList.contains('active') ? '深度思考' : '思考';
+                addMessage(`已${thinkType} ${delaySeconds} 秒`, 'bot', 'thinking');
+                addMessage(message, 'bot', category);
+
                 input.value = '';
                 input.disabled = false;
                 submitBtn.disabled = false;
