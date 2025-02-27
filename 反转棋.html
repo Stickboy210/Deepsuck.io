@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>黑白棋 - 高级AI版</title>
+    <style>
+        #board {
+            border: 2px solid #333;
+            margin: 20px;
+        }
+        .controls {
+            margin: 20px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="mode">
+            <option value="human">双人对战</option>
+            <option value="ai">AI对战</option>
+            <option value="ai_vs_ai">AI互弈</option>
+        </select>
+        <button onclick="newGame()">新游戏</button>
+    </div>
+    <canvas id="board" width="640" height="640"></canvas>
+    <div id="status"></div>
+
+<script>
+const SIZE = 8;
+const CELL_SIZE = 80;
+const HUMAN = 1;
+const AI = -1;
+let game;
+let canvas;
+let ctx;
+
+class Othello {
+    constructor() {
+        this.board = Array(SIZE).fill().map(() => Array(SIZE).fill(0));
+        this.board[3][3] = this.board[4][4] = 1;
+        this.board[3][4] = this.board[4][3] = -1;
+        this.currentPlayer = 1;
+        this.gameOver = false;
+    }
+
+    getValidMoves(player) {
+        const moves = [];
+        for(let i = 0; i < SIZE; i++) {
+            for(let j = 0; j < SIZE; j++) {
+                if(this.board[i][j] === 0 && this.isValidMove(i, j, player)) {
+                    moves.push([i, j]);
+                }
+            }
+        }
+        return moves;
+    }
+
+    isValidMove(x, y, player) {
+        const directions = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+        return directions.some(([dx, dy]) => this.checkDirection(x, y, dx, dy, player));
+    }
+
+    checkDirection(x, y, dx, dy, player) {
+        let i = x + dx, j = y + dy;
+        let foundOpponent = false;
+        while(i >= 0 && i < SIZE && j >= 0 && j < SIZE) {
+            if(this.board[i][j] === -player) foundOpponent = true;
+            else if(this.board[i][j] === player) return foundOpponent;
+            else break;
+            i += dx; j += dy;
+        }
+        return false;
+    }
+
+    makeMove(x, y, player) {
+        if(!this.isValidMove(x, y, player)) return null;
+        
+        const flipped = [];
+        this.board[x][y] = player;
+        const directions = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+        directions.forEach(([dx, dy]) => {
+            let i = x + dx, j = y + dy;
+            const toFlip = [];
+            while(i >= 0 && i < SIZE && j >= 0 && j < SIZE && this.board[i][j] === -player) {
+                toFlip.push([i, j]);
+                i += dx; j += dy;
+            }
+            if(i >= 0 && i < SIZE && j >= 0 && j < SIZE && this.board[i][j] === player) {
+                toFlip.forEach(([i, j]) => {
+                    this.board[i][j] = player;
+                    flipped.push([i, j]);
+                });
+            }
+        });
+        return {x, y, flipped}; // 返回移动详细信息用于撤销
+    }
+
+    undoMove(move, player) {
+        if (!move) return;
+        
+        // Set the played position back to 0
+        this.board[move.x][move.y] = 0;
+        
+        // Restore the flipped pieces to the opponent's color
+        move.flipped.forEach(([i, j]) => {
+            this.board[i][j] = -player;
+        });
+    }
+
+    isGameOver() {
+        const validMovesCurrent = this.getValidMoves(this.currentPlayer);
+        const validMovesOpponent = this.getValidMoves(-this.currentPlayer);
+        return validMovesCurrent.length === 0 && validMovesOpponent.length === 0;
+    }
+
+    getScore() {
+        let humanCount = 0;
+        let aiCount = 0;
+        for (let i = 0; i < SIZE; i++) {
+            for (let j = 0; j < SIZE; j++) {
+                if (this.board[i][j] === HUMAN) {
+                    humanCount++;
+                } else if (this.board[i][j] === AI) {
+                    aiCount++;
+                }
+            }
+        }
+        return { humanCount, aiCount };
+    }
+}
+
+class AIPlayer {
+    constructor(depth = 6) {
+        this.depth = depth;
+        this.zobristTable = this.initZobrist(); // Zobrist哈希表
+    }
+
+    initZobrist() {
+        const table = Array(SIZE).fill().map(() => 
+            Array(SIZE).fill().map(() => 
+                ({ [HUMAN]: Math.random(), [AI]: Math.random() })
+            )
+        );
+        return table;
+    }
+
+    computeHash(board) {
+        let hash = 0;
+        for(let i = 0; i < SIZE; i++) {
+            for(let j = 0; j < SIZE; j++) {
+                const player = board[i][j];
+                if(player !== 0) {
+                    hash ^= this.zobristTable[i][j][player];
+                }
+            }
+        }
+        return hash;
+    }
+
+    evaluate(board, player) {
+        const weights = [
+            [200, -40, 20, 10, 10, 20, -40, 200],
+            [-40, -80, -5, -5, -5, -5, -80, -40],
+            [ 20,  -5,  3,  2,  2,  3,  -5,  20],
+            [ 10,  -5,  2,  1,  1,  2,  -5,  10],
+            [ 10,  -5,  2,  1,  1,  2,  -5,  10],
+            [ 20,  -5,  3,  2,  2,  3,  -5,  20],
+            [-40, -80, -5, -5, -5, -5, -80, -40],
+            [200, -40, 20, 10, 10, 20, -40, 200]
+        ];
+
+        let score = 0;
+        let coinParity = 0;
+        let corners = 0;
+        let stability = 0;
+        let mobility = 0;
+        const emptyCells = board.flat().filter(c => c === 0).length;
+        
+        const gamePhase = emptyCells > 32 ? 'opening' : emptyCells > 12 ? 'midgame' : 'endgame';
+        const weightsConfig = {
+            opening: { position: 3, mobility: 4, coin: 0.5, corner: 5 },
+            midgame: { position: 2, mobility: 3, coin: 1, corner: 3 },
+            endgame: { position: 0.5, mobility: 1, coin: 3, corner: 1 }
+        };
+        const { position, mobility: mobW, coin, corner } = weightsConfig[gamePhase];
+
+        for(let i = 0; i < SIZE; i++) {
+            for(let j = 0; j < SIZE; j++) {
+                const value = board[i][j];
+                if(value === 0) continue;
+
+                score += value * weights[i][j] * position;
+
+                if((i === 0 || i === 7) && (j === 0 || j === 7)) {
+                    corners += value;
+                }
+
+                if(this.isStable(i, j, board)) {
+                    stability += value;
+                }
+            }
+        }
+
+        const currentMobility = game.getValidMoves(player).length;
+        const opponentMobility = game.getValidMoves(-player).length;
+        mobility = (currentMobility - opponentMobility) * mobW;
+
+        coinParity = board.flat().reduce((a, b) => a + b) * coin;
+
+        return (score + corners * corner + stability * 2 + mobility + coinParity) * player;
+    }
+
+    isStable(x, y, board) {
+        return (x === 0 || x === 7) && (y === 0 || y === 7);
+    }
+
+    getOrderedMoves(player) {
+        const moves = game.getValidMoves(player);
+        const weights = [
+            [200, -40, 20, 10, 10, 20, -40, 200],
+            [-40, -80, -5, -5, -5, -5, -80, -40],
+            [ 20,  -5,  3,  2,  2,  3,  -5,  20],
+            [ 10,  -5,  2,  1,  1,  2,  -5,  10],
+            [ 10,  -5,  2,  1,  1,  2,  -5,  10],
+            [ 20,  -5,  3,  2,  2,  3,  -5,  20],
+            [-40, -80, -5, -5, -5, -5, -80, -40],
+            [200, -40, 20, 10, 10, 20, -40, 200]
+        ];
+        
+        return moves.sort((a, b) => {
+            const scoreA = weights[a[0]][a[1]];
+            const scoreB = weights[b[0]][b[1]];
+            return player === AI ? scoreB - scoreA : scoreA - scoreB;
+        });
+    }
+
+    getBestMove(player) {
+        const hash = this.computeHash(game.board);
+        let bestValue = (player === AI) ? -Infinity : Infinity;
+        let bestMoves = [];
+        
+        const moves = this.getOrderedMoves(player);
+        
+        for(const [x, y] of moves) {
+            const move = game.makeMove(x, y, player);
+            const newHash = hash ^ this.zobristTable[x][y][player] ^ 
+                move.flipped.reduce((acc, [i,j]) => acc ^ this.zobristTable[i][j][player], 0);
+            
+            const value = this.alphaBeta(game.board, this.depth-1, -Infinity, Infinity, -player, newHash);
+            game.undoMove(move, player);
+            
+            if((player === AI && value > bestValue) || 
+               (player === HUMAN && value < bestValue)) {
+                bestValue = value;
+                bestMoves = [[x, y]];
+            } else if(value === bestValue) {
+                bestMoves.push([x, y]);
+            }
+        }
+        return bestMoves.length ? bestMoves[Math.floor(Math.random() * bestMoves.length)] : null;
+    }
+
+    alphaBeta(board, depth, alpha, beta, player, hash) {
+        if(depth === 0 || game.isGameOver()) {
+            return this.evaluate(board, player);
+        }
+
+        const moves = this.getOrderedMoves(player);
+
+        if(moves.length === 0) {
+            return this.alphaBeta(board, depth-1, alpha, beta, -player, hash);
+        }
+
+        let bestValue = (player === AI) ? -Infinity : Infinity;
+        let bestMove = null;
+
+        for(const [x, y] of moves) {
+            const move = game.makeMove(x, y, player);
+            const newHash = hash ^ this.zobristTable[x][y][player] ^ move.flipped.reduce((acc, [i,j]) => 
+                acc ^ this.zobristTable[i][j][player], 0);
+            
+            const value = this.alphaBeta(game.board, depth-1, alpha, beta, -player, newHash);
+            
+            game.undoMove(move, player);
+
+            if(player === AI) {
+                if(value > bestValue) {
+                    bestValue = value;
+                    bestMove = [x, y];
+                    alpha = Math.max(alpha, value);
+                }
+            } else {
+                if(value < bestValue) {
+                    bestValue = value;
+                    bestMove = [x, y];
+                    beta = Math.min(beta, value);
+                }
+            }
+            
+            if(alpha >= beta) break;
+        }
+
+        return bestValue;
+    }
+}
+
+function aiMove() {
+    if(game.gameOver) return;
+    
+    const ai = new AIPlayer(6); // AI实例
+    const currentPlayer = game.currentPlayer;
+    const move = ai.getBestMove(currentPlayer);
+    
+    if(move) {
+        const [x, y] = move;
+        game.makeMove(x, y, currentPlayer);
+        game.currentPlayer = -currentPlayer;
+    } else {
+        game.currentPlayer = -currentPlayer;
+    }
+    updateGame();
+}
+
+async function autoPlayAI() {
+    while(!game.gameOver && document.getElementById('mode').value === 'ai_vs_ai') {
+        await new Promise(resolve => setTimeout(() => {
+            if(document.getElementById('mode').value === 'ai_vs_ai') resolve();
+        }, 500));
+        aiMove();
+    }
+}
+
+function drawBoard() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for(let i = 0; i < SIZE; i++) {
+        for(let j = 0; j < SIZE; j++) {
+            ctx.fillStyle = '#2e8b57';
+            ctx.fillRect(j*CELL_SIZE, i*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = '#000';
+            ctx.strokeRect(j*CELL_SIZE, i*CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            
+            if(game.board[i][j] === HUMAN) {
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(j*CELL_SIZE+CELL_SIZE/2, i*CELL_SIZE+CELL_SIZE/2, CELL_SIZE/2-5, 0, Math.PI*2);
+                ctx.fill();
+            } else if(game.board[i][j] === AI) {
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(j*CELL_SIZE+CELL_SIZE/2, i*CELL_SIZE+CELL_SIZE/2, CELL_SIZE/2-5, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // 绘制可落子提示
+    const mode = document.getElementById('mode').value;
+    if (!game.gameOver && (mode === 'human' || (mode === 'ai' && game.currentPlayer === HUMAN))) {
+        const validMoves = game.getValidMoves(game.currentPlayer);
+        validMoves.forEach(([x, y]) => {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(y*CELL_SIZE+CELL_SIZE/2, x*CELL_SIZE+CELL_SIZE/2, 5, 0, Math.PI*2);
+            ctx.fill();
+        });
+    }
+}
+
+function handleClick(e) {
+    const mode = document.getElementById('mode').value;
+    if(mode === 'ai_vs_ai') return;
+    if(game.gameOver || (mode === 'ai' && game.currentPlayer === AI)) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+    const y = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+    
+    if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+    if (game.board[x][y] !== 0) return;
+
+    const move = game.makeMove(x, y, game.currentPlayer);
+    if (move) {
+        game.currentPlayer = -game.currentPlayer;
+        updateGame(); // updateGame内部会自动触发AI移动
+    }
+}
+
+function updateGame() {
+    drawBoard();
+    let validMoves = game.getValidMoves(game.currentPlayer);
+    
+    if (validMoves.length === 0) {
+        game.currentPlayer = -game.currentPlayer;
+        validMoves = game.getValidMoves(game.currentPlayer);
+        if (validMoves.length === 0) {
+            game.gameOver = true;
+        } else {
+            const mode = document.getElementById('mode').value;
+            if ((mode === 'ai' && game.currentPlayer === AI) || mode === 'ai_vs_ai') {
+                setTimeout(aiMove, 500);
+            }
+        }
+    }
+
+    if(game.gameOver) {
+        const { humanCount, aiCount } = game.getScore();
+        let message;
+        if (humanCount > aiCount) {
+            message = '黑方胜利！';
+        } else if (humanCount < aiCount) {
+            message = '白方胜利！';
+        } else {
+            message = '平局！';
+        }
+        document.getElementById('status').textContent = message;
+    } else {
+        document.getElementById('status').textContent = 
+            `当前玩家：${game.currentPlayer === HUMAN ? '黑方' : '白方'}`;
+        
+        const mode = document.getElementById('mode').value;
+        if (mode === 'ai' && game.currentPlayer === AI && !game.gameOver) {
+            setTimeout(aiMove, 500);
+        }
+    }
+}
+
+function newGame() {
+    game = new Othello();
+    const mode = document.getElementById('mode').value;
+    if(mode === 'ai_vs_ai') {
+        autoPlayAI();
+    } else if(mode === 'ai' && game.currentPlayer === AI) {
+        setTimeout(aiMove, 500);
+    }
+    updateGame();
+}
+
+canvas = document.getElementById('board');
+ctx = canvas.getContext('2d');
+canvas.addEventListener('click', handleClick);
+newGame();
+</script>
+</body>
+</html>
