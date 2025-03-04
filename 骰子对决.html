@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>÷»×Ó¶ÔÕ½</title>
+    <meta charset="UTF-8">
+    <title>éª°å­å¯¹æˆ˜</title>
     <style>
         .container {
             display: flex;
@@ -64,11 +65,11 @@
 <body>
     <div class="controls">
         <select id="mode">
-            <option value="pvp">Ë«ÈË¶ÔÕ½</option>
-            <option value="pve">AI¶ÔÕ½</option>
-            <option value="eve">AI»¥²«</option>
+            <option value="pvp">åŒäººå¯¹æˆ˜</option>
+            <option value="pve">AIå¯¹æˆ˜</option>
+            <option value="eve">AIäº’æ</option>
         </select>
-        <button onclick="newGame()">ĞÂÓÎÏ·</button>
+        <button onclick="newGame()">æ–°æ¸¸æˆ</button>
     </div>
     <div class="score" id="score2"></div>
     <div class="board" id="board2"></div>
@@ -91,7 +92,7 @@ class AI {
             }
         }
 
-        // ÓÅÏÈÑ°ÕÒ¿ÉÏû³ı¶ÔÊÖµÄÁĞ
+        // ä¼˜å…ˆå¯»æ‰¾å¯æ¶ˆé™¤å¯¹æ‰‹çš„åˆ—
         for (const col of validMoves) {
             const opponentCol = this.game.players[1 - this.player.id].board[col];
             if (opponentCol.includes(diceValue)) {
@@ -99,7 +100,7 @@ class AI {
             }
         }
 
-        // Ñ°ÕÒ¼º·½¿É¼Ó·Ö×î¶àµÄÁĞ
+        // å¯»æ‰¾å·±æ–¹å¯åŠ åˆ†æœ€å¤šçš„åˆ—
         let bestCol = -1;
         let maxScore = -1;
         for (const col of validMoves) {
@@ -150,7 +151,7 @@ class Game {
 
         player.board[col][row] = this.diceValue;
         
-        // ¼ì²é²¢Ïû³ı¶ÔÊÖµÄÏàÍ¬Êı×Ö
+        // æ£€æŸ¥å¹¶æ¶ˆé™¤å¯¹æ‰‹çš„ç›¸åŒæ•°å­—
         const opponent = this.players[1 - playerId];
         opponent.board[col] = opponent.board[col].map(n => n === this.diceValue ? null : n);
 
@@ -208,7 +209,7 @@ function updateDisplay() {
             cell.textContent = game.players[playerId].board[col][row] || '';
         });
         document.getElementById(`score${playerId+1}`).textContent = 
-            `Íæ¼Ò ${playerId+1} µÃ·Ö: ${game.players[playerId].score}`;
+            `ç©å®¶ ${playerId+1} å¾—åˆ†: ${game.players[playerId].score}`;
     });
 
     document.getElementById('dice').textContent = game.diceValue || '?';
@@ -223,7 +224,7 @@ async function makeMove(col) {
         if (!game.isGameOver()) {
             await nextTurn();
         } else {
-            alert(`ÓÎÏ·½áÊø£¡×îÖÕ±È·Ö£º\nÍæ¼Ò1: ${game.players[0].score}\nÍæ¼Ò2: ${game.players[1].score}`);
+            alert(`æ¸¸æˆç»“æŸï¼æœ€ç»ˆæ¯”åˆ†ï¼š\nç©å®¶1: ${game.players[0].score}\nç©å®¶2: ${game.players[1].score}`);
         }
     }
     updateDisplay();
@@ -259,7 +260,7 @@ function newGame() {
         game.mode === 'pve' ? new AI(game, game.players[0]) : null,
         game.mode === 'pve' || game.mode === 'eve' ? new AI(game, game.players[1]) : null
     ];
-    console.log("AI ³õÊ¼»¯£º", ai); // Ìí¼Óµ÷ÊÔĞÅÏ¢
+    console.log("AI åˆå§‹åŒ–ï¼š", ai); // æ·»åŠ è°ƒè¯•ä¿¡æ¯
     createBoard(document.getElementById('board1'), 0);
     createBoard(document.getElementById('board2'), 1);
     updateDisplay();
