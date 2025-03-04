@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>骰子对战</title>
+    <style>
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            gap: 5px;
+            margin: 20px;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .dice {
+            width: 100px;
+            height: 100px;
+            border: 2px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 20px auto;
+        }
+
+        .shake {
+            animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(3px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+
+        .score {
+            text-align: center;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <select id="mode">
+            <option value="pvp">双人对战</option>
+            <option value="pve">AI对战</option>
+            <option value="eve">AI互搏</option>
+        </select>
+        <button onclick="newGame()">新游戏</button>
+    </div>
+    <div class="score" id="score2"></div>
+    <div class="board" id="board2"></div>
+    <div class="dice" id="dice">?</div>
+    <div class="board" id="board1"></div>
+    <div class="score" id="score1"></div>
+
+<script>
+class AI {
+    constructor(game, player) {
+        this.game = game;
+        this.player = player;
+    }
+
+    getMove(diceValue) {
+        const validMoves = [];
+        for (let col = 0; col < 3; col++) {
+            if (this.player.board[col].includes(null)) {
+                validMoves.push(col);
+            }
+        }
+
+        // 优先寻找可消除对手的列
+        for (const col of validMoves) {
+            const opponentCol = this.game.players[1 - this.player.id].board[col];
+            if (opponentCol.includes(diceValue)) {
+                return col;
+            }
+        }
+
+        // 寻找己方可加分最多的列
+        let bestCol = -1;
+        let maxScore = -1;
+        for (const col of validMoves) {
+            const temp = [...this.player.board[col]];
+            const firstEmptyRow = temp.indexOf(null);
+            temp[firstEmptyRow] = diceValue;
+            
+            let colScore = 0;
+            const counts = {};
+            for (const num of temp.filter(n => n !== null)) {
+                colScore += num;
+                counts[num] = (counts[num] || 0) + 1;
+            }
+            Object.values(counts).forEach(c => {
+                if (c > 1) colScore *= 2;
+            });
+
+            if (colScore > maxScore) {
+                maxScore = colScore;
+                bestCol = col;
+            }
+        }
+
+        return bestCol !== -1 ? bestCol : validMoves[Math.floor(Math.random()*validMoves.length)];
+    }
+}
+
+class Game {
+    constructor() {
+        this.players = [
+            { id: 0, board: Array(3).fill().map(() => Array(3).fill(null)), score: 0 },
+            { id: 1, board: Array(3).fill().map(() => Array(3).fill(null)), score: 0 }
+        ];
+        this.currentPlayer = 0;
+        this.mode = 'pvp';
+        this.diceValue = null;
+    }
+
+    rollDice() {
+        this.diceValue = Math.floor(Math.random() * 6) + 1;
+        return this.diceValue;
+    }
+
+    placeNumber(playerId, col) {
+        const player = this.players[playerId];
+        const row = player.board[col].indexOf(null);
+        if (row === -1) return false;
+
+        player.board[col][row] = this.diceValue;
+        
+        // 检查并消除对手的相同数字
+        const opponent = this.players[1 - playerId];
+        opponent.board[col] = opponent.board[col].map(n => n === this.diceValue ? null : n);
+
+        this.updateScores();
+        return true;
+    }
+
+    updateScores() {
+        this.players.forEach(player => {
+            let total = 0;
+            for (let col = 0; col < 3; col++) {
+                const numbers = player.board[col].filter(n => n !== null);
+                const countMap = {};
+                numbers.forEach(n => countMap[n] = (countMap[n] || 0) + 1);
+                
+                numbers.forEach(n => {
+                    total += countMap[n] > 1 ? n * 2 : n;
+                });
+            }
+            player.score = total;
+        });
+    }
+
+    isGameOver() {
+        return this.players.some(p => 
+            p.board.every(col => !col.includes(null))
+        );
+    }
+}
+
+let game = new Game();
+let ai = [null, null];
+
+function createBoard(element, playerId) {
+    element.innerHTML = '';
+    for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.col = col;
+            cell.dataset.row = row;
+            cell.addEventListener('click', () => makeMove(col));
+            element.appendChild(cell);
+        }
+    }
+}
+
+function updateDisplay() {
+    [0, 1].forEach(playerId => {
+        const boardElement = document.getElementById(`board${playerId+1}`);
+        const cells = boardElement.getElementsByClassName('cell');
+        Array.from(cells).forEach(cell => {
+            const col = parseInt(cell.dataset.col);
+            const row = parseInt(cell.dataset.row);
+            cell.textContent = game.players[playerId].board[col][row] || '';
+        });
+        document.getElementById(`score${playerId+1}`).textContent = 
+            `玩家 ${playerId+1} 得分: ${game.players[playerId].score}`;
+    });
+
+    document.getElementById('dice').textContent = game.diceValue || '?';
+}
+
+async function makeMove(col) {
+    if (game.mode === 'eve') return;
+    if ((game.mode === 'pve' && game.currentPlayer === 1) && !ai[1]) return;
+    
+    if (game.placeNumber(game.currentPlayer, col)) {
+        game.currentPlayer = 1 - game.currentPlayer;
+        if (!game.isGameOver()) {
+            await nextTurn();
+        } else {
+            alert(`游戏结束！最终比分：\n玩家1: ${game.players[0].score}\n玩家2: ${game.players[1].score}`);
+        }
+    }
+    updateDisplay();
+}
+
+async function nextTurn() {
+    const currentPlayer = game.currentPlayer;
+    if ((game.mode === 'pve' && currentPlayer === 1) || game.mode === 'eve') {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const col = ai[currentPlayer].getMove(game.diceValue);
+        makeMove(col);
+    }
+}
+
+async function rollDice() {
+    const diceElement = document.getElementById('dice');
+    diceElement.classList.add('shake');
+    game.rollDice();
+    
+    await new Promise(resolve => setTimeout(resolve, 800));
+    diceElement.classList.remove('shake');
+    
+    if (game.mode !== 'pvp') {
+        await nextTurn();
+    }
+    updateDisplay();
+}
+
+function newGame() {
+    game = new Game();
+    game.mode = document.getElementById('mode').value;
+    ai = [
+        game.mode === 'pve' ? new AI(game, game.players[0]) : null,
+        game.mode === 'pve' || game.mode === 'eve' ? new AI(game, game.players[1]) : null
+    ];
+    console.log("AI 初始化：", ai); // 添加调试信息
+    createBoard(document.getElementById('board1'), 0);
+    createBoard(document.getElementById('board2'), 1);
+    updateDisplay();
+
+    if (game.mode === 'eve') {
+        setInterval(() => {
+            if (!game.diceValue) {
+                rollDice();
+            }
+        }, 1500);
+    }
+}
+
+document.getElementById('dice').addEventListener('click', rollDice);
+newGame();
+</script>
+</body>
+</html>
