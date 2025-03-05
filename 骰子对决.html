@@ -172,7 +172,13 @@ class Game {
                 numbers.forEach(n => countMap[n] = (countMap[n] || 0) + 1);
                 
                 numbers.forEach(n => {
-                    total += countMap[n] > 1 ? n * 2 : n;
+                    if(countMap[n]>2) {
+                      total += n*3;
+                    } else if(countMap[n]>1) {
+                      total += n*2;
+                    } else {
+                      total += n
+                    }
                 });
             }
             player.score = total;
