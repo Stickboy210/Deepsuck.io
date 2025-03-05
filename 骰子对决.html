@@ -81,54 +81,176 @@ class AI {
     constructor(game, player) {
         this.game = game;
         this.player = player;
+        this.searchDepth = 3;  // 搜索深度增加到3层
     }
 
     getMove(diceValue) {
-        const validMoves = [];
-        for (let col = 0; col < 3; col++) {
-            if (this.player.board[col].includes(null)) {
-                validMoves.push(col);
-            }
-        }
+        let bestScore = -Infinity;
+        let bestMoves = [];
+        const validMoves = this.getValidMoves(diceValue);
 
-        // 新增首次移动选择中间列逻辑
-        const isFirstMove = this.player.board.every(column => column.every(cell => cell === null));
-        if (isFirstMove && validMoves.includes(1)) {
+        // 首步中间列优化
+        if (this.isFirstMove() && validMoves.includes(1)) {
             return 1;
         }
 
-        // 原有决策逻辑...
+        // α-β剪枝搜索
         for (const col of validMoves) {
-            const opponentCol = this.game.players[1 - this.player.id].board[col];
-            if (opponentCol.includes(diceValue)) {
-                return col;
-            }
-        }
-
-        let bestCol = -1;
-        let maxScore = -1;
-        for (const col of validMoves) {
-            const temp = [...this.player.board[col]];
-            const firstEmptyRow = temp.indexOf(null);
-            temp[firstEmptyRow] = diceValue;
+            const simulatedGame = this.cloneGame();
+            simulatedGame.placeNumber(this.player.id, col);
             
-            let colScore = 0;
-            const counts = {};
-            for (const num of temp.filter(n => n !== null)) {
-                colScore += num;
-                counts[num] = (counts[num] || 0) + 1;
-            }
-            Object.values(counts).forEach(c => {
-                if (c > 1) colScore *= 2;
-            });
+            const score = this.minimax(
+                simulatedGame,
+                this.searchDepth - 1,
+                -Infinity,
+                Infinity,
+                false,
+                diceValue
+            );
 
-            if (colScore > maxScore) {
-                maxScore = colScore;
-                bestCol = col;
+            if (score > bestScore) {
+                bestScore = score;
+                bestMoves = [col];
+            } else if (score === bestScore) {
+                bestMoves.push(col);
             }
         }
 
-        return bestCol !== -1 ? bestCol : validMoves[Math.floor(Math.random()*validMoves.length)];
+        return bestMoves.length > 0 
+            ? bestMoves[Math.floor(Math.random() * bestMoves.length)]
+            : validMoves[Math.floor(Math.random() * validMoves.length)];
+    }
+
+    minimax(game, depth, alpha, beta, isMaximizing, lastDiceValue) {
+        if (depth === 0 || game.isGameOver()) {
+            return this.evaluateGameState(game);
+        }
+
+        const currentPlayer = isMaximizing ? game.players[0] : game.players[1];
+        const validMoves = this.getValidMoves(lastDiceValue);
+
+        if (isMaximizing) {
+            let maxScore = -Infinity;
+            for (const col of validMoves) {
+                const simulatedGame = this.cloneGame(game);
+                simulatedGame.placeNumber(currentPlayer.id, col);
+                
+                // 模拟随机骰子结果
+                const expectedValue = 3.5; // 骰子期望值
+                const score = this.minimax(simulatedGame, depth-1, alpha, beta, false, expectedValue);
+                
+                maxScore = Math.max(maxScore, score);
+                alpha = Math.max(alpha, score);
+                if (beta <= alpha) break;
+            }
+            return maxScore;
+        } else {
+            let minScore = Infinity;
+            for (const col of validMoves) {
+                const simulatedGame = this.cloneGame(game);
+                simulatedGame.placeNumber(currentPlayer.id, col);
+                
+                const expectedValue = 3.5;
+                const score = this.minimax(simulatedGame, depth-1, alpha, beta, true, expectedValue);
+                
+                minScore = Math.min(minScore, score);
+                beta = Math.min(beta, score);
+                if (beta <= alpha) break;
+            }
+            return minScore;
+        }
+    }
+
+    evaluateGameState(game) {
+        let score = 0;
+        const player = game.players[this.player.id];
+        const opponent = game.players[1 - this.player.id];
+
+        // 基础得分差
+        score += player.score - opponent.score;
+
+        // 列潜力评估
+        for (let col = 0; col < 3; col++) {
+            // 己方潜力
+            score += this.evaluateColumnPotential(player.board[col]) * 1.5;
+            // 对手威胁
+            score -= this.evaluateColumnPotential(opponent.board[col]) * 1.2;
+        }
+
+        // 连击机会评估
+        score += this.findComboPotential(player.board) * 2;
+        score -= this.findComboPotential(opponent.board) * 1.8;
+
+        return score;
+    }
+
+    evaluateColumnPotential(column) {
+        const numbers = column.filter(n => n !== null);
+        if (numbers.length === 0) return 0;
+
+        const counts = {};
+        let potential = 0;
+        
+        numbers.forEach(n => {
+            counts[n] = (counts[n] || 0) + 1;
+            potential += n;
+        });
+
+        // 奖励重复数字
+        Object.values(counts).forEach(c => {
+            if (c >= 2) potential *= 2;
+            if (c >= 3) potential *= 3;
+        });
+
+        // 奖励剩余空间
+        potential += (3 - numbers.length) * 2;
+
+        return potential;
+    }
+
+    findComboPotential(board) {
+        let combo = 0;
+        // 检查垂直组合
+        board.forEach(col => {
+            if (col.filter(n => n !== null).length === 3) {
+              combo += 15;
+            } else if (col.filter(n => n !== null).length === 2) {
+              combo += 10;
+            }
+        });
+
+        // 检查水平组合
+        /*for (let row = 0; row < 3; row++) {
+            const set = new Set();
+            for (let col = 0; col < 3; col++) {
+                set.add(board[col][row]);
+            }
+            if (set.size === 1 && !set.has(null)) combo += 15;
+        }*/
+
+        return combo;
+    }
+
+    getValidMoves(diceValue) {
+        return this.game.players[this.player.id].board
+            .map((col, idx) => col.includes(null) ? idx : -1)
+            .filter(idx => idx !== -1);
+    }
+
+    cloneGame() {
+        const newGame = new Game();
+        newGame.players = this.game.players.map(p => ({
+            ...p,
+            board: p.board.map(col => [...col]),
+            score: p.score
+        }));
+        newGame.currentPlayer = this.game.currentPlayer;
+        newGame.diceValue = this.game.diceValue;
+        return newGame;
+    }
+
+    isFirstMove() {
+        return this.player.board.every(col => col.every(cell => cell === null));
     }
 }
 
