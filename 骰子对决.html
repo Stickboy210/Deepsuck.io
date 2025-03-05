@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
     <title>骰子对战</title>
     <style>
         .container {
@@ -92,7 +91,13 @@ class AI {
             }
         }
 
-        // 优先寻找可消除对手的列
+        // 新增首次移动选择中间列逻辑
+        const isFirstMove = this.player.board.every(column => column.every(cell => cell === null));
+        if (isFirstMove && validMoves.includes(1)) {
+            return 1;
+        }
+
+        // 原有决策逻辑...
         for (const col of validMoves) {
             const opponentCol = this.game.players[1 - this.player.id].board[col];
             if (opponentCol.includes(diceValue)) {
@@ -100,7 +105,6 @@ class AI {
             }
         }
 
-        // 寻找己方可加分最多的列
         let bestCol = -1;
         let maxScore = -1;
         for (const col of validMoves) {
@@ -216,7 +220,7 @@ function updateDisplay() {
 }
 
 async function makeMove(col) {
-    if (game.mode === 'eve') return;
+    // 移除EVE模式返回判断
     if ((game.mode === 'pve' && game.currentPlayer === 1) && !ai[1]) return;
     
     if (game.placeNumber(game.currentPlayer, col)) {
@@ -230,12 +234,32 @@ async function makeMove(col) {
     updateDisplay();
 }
 
+function newGame() {
+    game = new Game();
+    game.mode = document.getElementById('mode').value;
+    // 修正AI初始化逻辑
+    ai = [
+        (game.mode === 'pve' || game.mode === 'eve') ? new AI(game, game.players[0]) : null,
+        (game.mode === 'pve' || game.mode === 'eve') ? new AI(game, game.players[1]) : null
+    ];
+    createBoard(document.getElementById('board1'), 0);
+    createBoard(document.getElementById('board2'), 1);
+    updateDisplay();
+
+    if (game.mode === 'eve') {
+        nextTurn(); // 启动自动游戏循环
+    }
+}
+
 async function nextTurn() {
+    if (game.isGameOver()) return;
+    
     const currentPlayer = game.currentPlayer;
     if ((game.mode === 'pve' && currentPlayer === 1) || game.mode === 'eve') {
+        await rollDice();
         await new Promise(resolve => setTimeout(resolve, 500));
         const col = ai[currentPlayer].getMove(game.diceValue);
-        makeMove(col);
+        await makeMove(col);
     }
 }
 
@@ -246,36 +270,14 @@ async function rollDice() {
     
     await new Promise(resolve => setTimeout(resolve, 800));
     diceElement.classList.remove('shake');
-    
-    if (game.mode !== 'pvp') {
-        await nextTurn();
-    }
-    updateDisplay();
+    updateDisplay();  // 更新显示骰子值
 }
 
-function newGame() {
-    game = new Game();
-    game.mode = document.getElementById('mode').value;
-    ai = [
-        game.mode === 'pve' ? new AI(game, game.players[0]) : null,
-        game.mode === 'pve' || game.mode === 'eve' ? new AI(game, game.players[1]) : null
-    ];
-    console.log("AI 初始化：", ai); // 添加调试信息
-    createBoard(document.getElementById('board1'), 0);
-    createBoard(document.getElementById('board2'), 1);
-    updateDisplay();
-
-    if (game.mode === 'eve') {
-        setInterval(() => {
-            if (!game.diceValue) {
-                rollDice();
-            }
-        }, 1500);
+document.getElementById('dice').addEventListener('click', async () => {
+    if (game.mode === 'pvp' || (game.mode === 'pve' && game.currentPlayer === 0)) {
+        await rollDice();
     }
-}
-
-document.getElementById('dice').addEventListener('click', rollDice);
-newGame();
+});
 </script>
 </body>
 </html>
