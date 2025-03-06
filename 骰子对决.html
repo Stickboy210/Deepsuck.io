@@ -352,11 +352,6 @@ class Game {
         );
     }
 
-    checkWinCondition() {
-        // 检查是否有一方的分数达到胜利条件（例如：分数超过100）
-        const winThreshold = 100; // 胜利分数阈值
-        return this.players.find(player => player.score >= winThreshold);
-    }
 }
 
 let game = new Game();
@@ -406,16 +401,12 @@ async function makeMove(col) {
     if (game.placeNumber(game.currentPlayer, col)) {
         game.currentPlayer = 1 - game.currentPlayer;
 
-        // 检查胜利条件
-        const winner = game.checkWinCondition();
-        if (winner) {
-            alert(`游戏结束！玩家 ${winner.id + 1} 获胜！`);
-            return;
-        }
+
 
         if (!game.isGameOver()) {
             await nextTurn();
         } else {
+            game.updateScores();  // 确保在游戏结束时更新分数
             alert(`游戏结束！最终比分：\n玩家1: ${game.players[0].score}\n玩家2: ${game.players[1].score}`);
         }
     }
