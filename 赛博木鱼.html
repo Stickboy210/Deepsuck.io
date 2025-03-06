@@ -11,14 +11,14 @@
             font-family: 'PingFang SC', sans-serif;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
         .header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 20vh; /* 移动头部内容向上 */
         }
         .header h1 {
             font-size: 25vw;
@@ -27,30 +27,33 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .score-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         .score {
             font-size: 10vh;
             font-weight: 900;
-            margin-top: 10px;
         }
         .description {
             font-size: 5vh;
         }
-        .muda-area {
+        .mudra-container {
             position: relative;
             cursor: pointer;
         }
+        .mudra {
+            width: 284px;
+        }
         .hammer {
             position: absolute;
-            right: -20px;
-            top: -20px;
-            width: 50px;
+            right: -30px;
+            top: -30px;
+            width: 119px;
             transition: transform 0.1s ease-in-out;
         }
-        .muda {
-            width: 200px;
-            transition: transform 0.1s ease-in-out;
-        }
-        .floating-text {
+        .floating-score {
             position: absolute;
             top: -50px;
             left: 50%;
@@ -58,14 +61,12 @@
             opacity: 0;
             font-size: 1.5em;
             font-family: 'PingFang SC', sans-serif;
-            animation: float 0.4s forwards;
         }
         @keyframes float {
             0% { opacity: 1; transform: translateX(-50%) translateY(0); }
             100% { opacity: 0; transform: translateX(-50%) translateY(-50px); }
         }
         .footer {
-            margin-top: 20px;
             font-size: 1.2em;
             font-family: 'Kaiti SC', sans-serif;
         }
@@ -74,48 +75,55 @@
 <body>
     <div class="header">
         <h1>赛博木鱼</h1>
-        <div class="score" id="score">0</div>
-        <div class="description">功德</div>
+        <div class="score-container">
+            <div class="score" id="score">0</div>
+            <div class="description">功德</div>
+        </div>
     </div>
-    <div class="muda-area" onclick="hitMuda()">
-        <img src="https://img.alicdn.com/imgextra/i3/O1CN012CO0YU1VSfNs506ZS_!!6000000002652-2-tps-284-236.png" alt="木鱼" class="muda">
+    <div class="mudra-container" onclick="hitMudra()">
+        <img src="https://img.alicdn.com/imgextra/i3/O1CN012CO0YU1VSfNs506ZS_!!6000000002652-2-tps-284-236.png" alt="木鱼" class="mudra">
         <img src="https://img.alicdn.com/imgextra/i1/O1CN01tKb5Et1aSjWRjCHK3_!!6000000003329-2-tps-119-69.png" alt="锤子" class="hammer" id="hammer">
-        <div class="floating-text" id="floatingText">功德+1</div>
+        <div class="floating-score" id="floatingScore"></div>
     </div>
     <div class="footer">轻敲木鱼，细悟赛博真经。</div>
 
-    <audio id="clickSound" src="https://qianwen.alicdn.com/resource/qiaomuyu.mp3"></audio>
+    <audio id="clickSound" src="https://qianwen.alicdn.com/resource/qiaomuyu.mp3" preload="auto"></audio>
 
     <script>
         let score = 0;
 
-        function hitMuda() {
+        function hitMudra() {
             const hammer = document.getElementById('hammer');
-            const mudaArea = document.querySelector('.muda-area');
-            const floatingText = document.getElementById('floatingText');
+            const floatingScore = document.getElementById('floatingScore');
             const clickSound = document.getElementById('clickSound');
 
-            // Reset hammer rotation and muda scale
+            // Reset hammer rotation and scale
             hammer.style.transform = 'rotate(0deg)';
-            mudaArea.style.transform = 'scale(1)';
+            document.querySelector('.mudra-container').style.transform = 'scale(1)';
 
-            // Play sound effect
-            clickSound.currentTime = 0;
-            clickSound.play();
-
-            // Animate hammer rotation
+            // Rotate hammer
             setTimeout(() => {
                 hammer.style.transform = 'rotate(-25deg)';
             }, 10);
 
-            // Animate muda scaling
+            // Scale mudra
             setTimeout(() => {
-                mudaArea.style.transform = 'scale(1.1)';
+                document.querySelector('.mudra-container').style.transform = 'scale(1.1)';
             }, 10);
 
-            // Show floating text
-            floatingText.style.opacity = '1';
-            floatingText.style.animation = 'float 0.4s forwards';
+            // Play sound
+            clickSound.currentTime = 0;
+            clickSound.play();
+
+            // Show floating score
+            floatingScore.textContent = '功德+1';
+            floatingScore.style.opacity = '1';
+            floatingScore.style.transform = 'translateX(-50%) translateY(0)';
+            floatingScore.style.animation = '';
+
+            // Trigger the animation
+            void floatingScore.offsetWidth; // reflow to restart animation
+            floatingScore.style.animation = 'float 0.4s forwards';
 
             // Update score
             score++;
@@ -124,3 +132,6 @@
     </script>
 </body>
 </html>
+
+
+
