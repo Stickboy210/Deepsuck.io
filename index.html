@@ -851,6 +851,9 @@
                 knowledge: ["知识", "科普", "你知道吗", "告诉我","你知道"],
                 random: ["随便聊聊", "随便说说", "随便", "闲聊", "说点什么", "聊聊天","聊聊","聊一聊","聊天"],
                 special: ["周俊杰", "刘屹松","zjj"],
+                special2: [
+                  "杨一楠"
+                ],
                 error: ["听不懂", "不明白", "不清楚"],
                 philosophy: ["哲学", "思考", "意义", "存在"],
                 encouragement: ["鼓励", "加油", "支持"],
@@ -877,6 +880,10 @@
                 environment: ["环境", "生态", "污染", "气候", "环保"],
                 reversi: ["反转棋", "黑白棋", "翻转棋"],
                 gomoku: ["五子棋", "gomoku"] // 添加五子棋关键词
+                Dice: ["骰子","色子"],
+                Russia: ["俄罗斯方块"],
+                Woodfish: ["木鱼"]
+
             };
 
             for (const category in keywords) {
@@ -1001,6 +1008,10 @@
                   "时间过得真快，转眼间已经是 " + new Date().toLocaleTimeString() + " 了。",
                   "今天的日期是 " + new Date().toLocaleDateString() + "，你有什么特别的计划吗？",
                   "现在是 " + new Date().toLocaleTimeString() + "，记得给自己一点休息时间哦。"
+              ],
+              special2: [
+                  "杨一楠是434A电脑兽的最大赞助商。",
+                  "杨一楠是zjj父亲智囊团的成员。"
               ],
               weather: [
                   "今天天气不错呢，你觉得呢？",
@@ -1146,11 +1157,19 @@
                   '点击开始游戏：<a href="javascript:void(0)" onclick="showReversi()" style="color: var(--deepseek-blue); text-decoration: underline;">黑白棋</a>'
               ],*/
               reversi: [
-                  '点击开始游戏：<a href="反转棋.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">黑白棋</a>'
+                  '黑白棋我也会哦：<a href="反转棋.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">黑白棋</a>'
               ],
               gomoku: [
-                  '点击开始游戏：<a href="五子棋.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">五子棋</a>'
-              ]
+                  '没问题，来和我下棋：<a href="五子棋.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">五子棋</a>'
+              ],
+              Dice: [
+                  '挑战我！<a href="骰子对决.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">骰子对决</a>'
+              ],
+              Russia: [
+                  '这是个古老的游戏：<a href="俄罗斯方块.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">俄罗斯方块</a>'
+              ],
+              Woodfish: [
+                  '敲电子木鱼，品赛博真经：<a href="赛博木鱼.html" target="_blank" style="color: var(--deepseek-blue); text-decoration: underline;">功德算我的</a>'
           };
           
           const category = detectKeywords(question);
