@@ -11,9 +11,18 @@
 
         .board {
             display: grid;
-            grid-template-columns: repeat(3, 60px);
+            grid-template-columns: repeat(4, 60px); /* 修改为4列 */
             gap: 5px;
             margin: 20px;
+            border: 3px solid transparent; /* 新增样式 */
+        }
+
+        #board1.current-turn {
+            border-color: blue; /* 新增样式 */
+        }
+
+        #board2.current-turn {
+            border-color: red; /* 新增样式 */
         }
 
         .cell {
@@ -59,6 +68,10 @@
             text-align: center;
             font-size: 24px;
         }
+
+        /* 保持背景色样式 */
+        .current-player1 { background: #e6f3ff; }
+        .current-player2 { background: #ffe6e6; }
     </style>
 </head>
 <body>
@@ -170,7 +183,7 @@ class AI {
         score += player.score - opponent.score;
 
         // 列潜力评估
-        for (let col = 0; col < 3; col++) {
+        for (let col = 0; col < 4; col++) { // 修改为4列
             // 己方潜力
             score += this.evaluateColumnPotential(player.board[col]) * 1.5;
             // 对手威胁
@@ -203,30 +216,32 @@ class AI {
         });
 
         // 奖励剩余空间
-        potential += (3 - numbers.length) * 2;
+        potential += (4 - numbers.length) * 2; // 修改为4行
 
         return potential;
     }
 
     findComboPotential(board) {
         let combo = 0;
-        // 检查垂直组合
+        // 检查垂直组合（列）
         board.forEach(col => {
-            if (col.filter(n => n !== null).length === 3) {
-              combo += 15;
-            } else if (col.filter(n => n !== null).length === 2) {
-              combo += 10;
+            const counts = {}; // 用于统计每个数字在列中的出现次数
+            col.forEach(n => {
+                if (n !== null) {
+                    counts[n] = (counts[n] || 0) + 1; // 统计每个数字的出现次数
+                }
+            });
+    
+            // 检查是否有相同数字
+            for (const count of Object.values(counts)) {
+                if (count >= 2) {
+                    combo += 10; // 如果有至少2个相同的数字，加分10
+                }
+                if (count >= 3) {
+                    combo += 15; // 如果有3个相同的数字，额外加分15
+                }
             }
         });
-
-        // 检查水平组合
-        /*for (let row = 0; row < 3; row++) {
-            const set = new Set();
-            for (let col = 0; col < 3; col++) {
-                set.add(board[col][row]);
-            }
-            if (set.size === 1 && !set.has(null)) combo += 15;
-        }*/
 
         return combo;
     }
@@ -257,8 +272,8 @@ class AI {
 class Game {
     constructor() {
         this.players = [
-            { id: 0, board: Array(3).fill().map(() => Array(3).fill(null)), score: 0 },
-            { id: 1, board: Array(3).fill().map(() => Array(3).fill(null)), score: 0 }
+            { id: 0, board: Array(4).fill().map(() => Array(4).fill(null)), score: 0 }, // 修改为4×4
+            { id: 1, board: Array(4).fill().map(() => Array(4).fill(null)), score: 0 } // 修改为4×4
         ];
         this.currentPlayer = 0;
         this.mode = 'pvp';
@@ -275,20 +290,32 @@ class Game {
         const row = player.board[col].indexOf(null);
         if (row === -1) return false;
 
-        player.board[col][row] = this.diceValue;
+        // 保存当前骰子值到局部变量
+        const currentDice = this.diceValue;
         
-        // 检查并消除对手的相同数字
-        const opponent = this.players[1 - playerId];
-        opponent.board[col] = opponent.board[col].map(n => n === this.diceValue ? null : n);
+        // 更新己方棋盘
+        player.board[col][row] = currentDice;
 
-        this.updateScores();
+        // 立即处理对手消除逻辑（保持数据正确性）
+        const opponent = this.players[1 - playerId];
+        const originalOpponentCol = [...opponent.board[col]]; // 保存原始数据
+        
+        // 延迟显示消除动画
+        setTimeout(() => {
+            // 应用消除效果
+            opponent.board[col] = originalOpponentCol.map(n => n === currentDice ? null : n);
+            this.updateScores();
+            updateDisplay();
+        }, 300);
+
+        this.diceValue = null; // 重置骰子值
         return true;
     }
 
     updateScores() {
         this.players.forEach(player => {
             let total = 0;
-            for (let col = 0; col < 3; col++) {
+            for (let col = 0; col < 4; col++) { // 修改为4列
                 const numbers = player.board[col].filter(n => n !== null);
                 const countMap = {};
                 numbers.forEach(n => countMap[n] = (countMap[n] || 0) + 1);
@@ -297,10 +324,14 @@ class Game {
                 if (countMap[1] === 3) {
                     // 如果有三个1连成一条线，将其视为三个6
                     total += 6 * 3;
-                } else {
+                } else if(countMap[1] === 4){
+                    total += 6 * 4;
+                }else {
                     // 否则按正常规则计算分数
                     numbers.forEach(n => {
-                        if (countMap[n] > 2) {
+                        if (countMap[n] > 3) {
+                            total += n * 4;
+                        } else if (countMap[n] > 2) {
                             total += n * 3;
                         } else if (countMap[n] > 1) {
                             total += n * 2;
@@ -315,9 +346,16 @@ class Game {
     }
 
     isGameOver() {
+        // 检查是否有一方棋盘已满
         return this.players.some(p => 
             p.board.every(col => !col.includes(null))
         );
+    }
+
+    checkWinCondition() {
+        // 检查是否有一方的分数达到胜利条件（例如：分数超过100）
+        const winThreshold = 100; // 胜利分数阈值
+        return this.players.find(player => player.score >= winThreshold);
     }
 }
 
@@ -326,8 +364,8 @@ let ai = [null, null];
 
 function createBoard(element, playerId) {
     element.innerHTML = '';
-    for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 3; col++) {
+    for (let row = 0; row < 4; row++) { // 修改为4行
+        for (let col = 0; col < 4; col++) { // 修改为4列
             const cell = document.createElement('div');
             cell.className = 'cell';
             cell.dataset.col = col;
@@ -339,18 +377,25 @@ function createBoard(element, playerId) {
 }
 
 function updateDisplay() {
+    // 更新背景色（当前玩家指示）
+    document.body.className = `current-player${game.currentPlayer + 1}`;
+
+    // 更新双方棋盘显示
     [0, 1].forEach(playerId => {
         const boardElement = document.getElementById(`board${playerId+1}`);
         const cells = boardElement.getElementsByClassName('cell');
         Array.from(cells).forEach(cell => {
             const col = parseInt(cell.dataset.col);
             const row = parseInt(cell.dataset.row);
+            // 直接读取实时数据
             cell.textContent = game.players[playerId].board[col][row] || '';
         });
+        // 更新分数显示
         document.getElementById(`score${playerId+1}`).textContent = 
             `玩家 ${playerId+1} 得分: ${game.players[playerId].score}`;
     });
 
+    // 更新骰子显示
     document.getElementById('dice').textContent = game.diceValue || '?';
 }
 
@@ -360,6 +405,14 @@ async function makeMove(col) {
     
     if (game.placeNumber(game.currentPlayer, col)) {
         game.currentPlayer = 1 - game.currentPlayer;
+
+        // 检查胜利条件
+        const winner = game.checkWinCondition();
+        if (winner) {
+            alert(`游戏结束！玩家 ${winner.id + 1} 获胜！`);
+            return;
+        }
+
         if (!game.isGameOver()) {
             await nextTurn();
         } else {
@@ -395,6 +448,11 @@ async function nextTurn() {
         await new Promise(resolve => setTimeout(resolve, 500));
         const col = ai[currentPlayer].getMove(game.diceValue);
         await makeMove(col);
+        
+        // AI互搏模式持续进行
+        if (game.mode === 'eve' && !game.isGameOver()) {
+            setTimeout(nextTurn, 1000);
+        }
     }
 }
 
