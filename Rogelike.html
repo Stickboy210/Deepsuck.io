@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rogue Shooter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Arial&display=swap" rel="stylesheet">
+    <style>
+        /* 原有样式保持不变 */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #000000;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .gameContainer {
+            position: relative;
+            width: 1200px; /* Increased size */
+            height: 900px; /* Increased size */
+        }
+        @media (max-width: 1200px) {
+            .gameContainer {
+                width: 600px;
+                height: 750px;
+            }
+        }
+        #gameCanvas {
+            border: 1px solid #ffffff;
+            background-color: #111;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            display: none;
+        }
+        #newGameButton {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background-color: #ffcc00;
+            border: none;
+            cursor: pointer;
+        }
+        #upgradeOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            display: none;
+        }
+        .upgradeOptions {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        .upgradeOption {
+            margin: 10px;
+            padding: 10px 20px;
+            background-color: #ffcc00;
+            border: none;
+            cursor: pointer;
+            width: 30%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <button id="newGameButton">新游戏</button>
+        <div id="overlay">
+            <h1 id="message"></h1>
+            <button id="restartButton">重新开始</button>
+        </div>
+        <div id="upgradeOverlay">
+            <h2>请选择一个升级：</h2>
+            <div class="upgradeOptions">
+                <!-- Random upgrade options will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameWidth = 1200;
+        let gameHeight = 900;
+
+        if (window.innerWidth < 1200) {
+            gameWidth = 600;
+            gameHeight = 750;
+        }
+
+        canvas.width = gameWidth;
+        canvas.height = gameHeight;
+
+        // 音效资源
+        let shootSound = null;
+        let enemyKilledSound = null;
+        
+        document.getElementById('newGameButton').addEventListener('click', () => {
+            // 初始化音频资源
+            shootSound = new Audio('sounds/shoot.mp3');
+            enemyKilledSound = new Audio('sounds/enemy_killed.mp3');
+            resetGame();
+        });
+
+        const player = {
+            x: gameWidth / 2,
+            y: gameHeight - 50,
+            width: 20,
+            height: 20,
+            speed: 5,
+            health: 100,
+            maxHealth: 100,
+            score: 0,
+            level: 1,
+            experience: 0,
+            requiredExperience: 100,
+            shootCooldowns: {}, // Store cooldown for each weapon
+            bullets: [],
+            weapons: ['basic'],
+            rocketLevel: 0,
+            boomerangs: [],
+            boomerangCount: 0,
+            boomerangDamage: 2,
+            laserCooldown: 0,
+            currentWeapon: 'basic',
+            moveLeft: false,
+            moveRight: false,
+            moveUp: false,
+            moveDown: false,
+            attackPower: 1,
+            critChance: 0,
+            defense: 0,
+            experienceGainMultiplier: 1,
+            specialSkillUnlocked: false,
+            trajectories: 1, // Number of bullet trajectories
+            fireRateMultiplier: 1 // Multiplier for fire rate
+        };
+
+        // Initialize cooldowns for each weapon
+        player.weapons.forEach(weapon => {
+            player.shootCooldowns[weapon] = 0;
+        });
+
+        const monsters = [];
+        monsterFrequency = 0.01; // 1% chance per frame
+        const maxMonsterFrequency = 0.1
+
+        function drawPlayer() {
+            ctx.fillStyle = '#0000FF'; // Changed to blue
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function updatePlayerPosition() {
+            if (!isPaused) {
+                if (player.moveLeft && player.x > 0) {
+                    player.x -= player.speed;
+                }
+                if (player.moveRight && player.x < gameWidth - player.width) {
+                    player.x += player.speed;
+                }
+                if (player.moveUp && player.y > 0) {
+                    player.y -= player.speed;
+                }
+                if (player.moveDown && player.y < gameHeight - player.height) {
+                    player.y += player.speed;
+                }
+            }
+        }
+
+        function shootBullet(x, y, angle, weaponType) {
+            if (player.shootCooldowns[weaponType] <= 0 && !isPaused) {
+                for (let i = 0; i < player.trajectories; i++) {
+                    const trajectoryAngle = angle + Math.PI * (i - (player.trajectories - 1) / 2) / (player.trajectories * 4);
+                    switch (weaponType) {
+                    case 'rocket':
+                        const rocketCount = 1 + Math.floor(player.rocketLevel / 2); // 每升2级增加1发
+                        for (let i = 0; i < rocketCount; i++) {
+                            const spread = Math.PI / 8 * (i - (rocketCount - 1) / 2); // 散射角度
+                            const target = findNearestEnemy(); // 寻找最近的敌人
+                            player.bullets.push({
+                                x: x,
+                                y: y,
+                                width: 15,
+                                height: 15,
+                                speed: 8,
+                                vx: Math.cos(angle + spread) * 8,
+                                vy: Math.sin(angle + spread) * 8,
+                                type: 'rocket',
+                                explosionRadius: 50 + player.rocketLevel * 10, // 范围随等级增加
+                                lifetime: 180, // 3秒后自动爆炸
+                                target: target, // 添加目标属性
+                                damageMultiplier: 1.5 // 提高伤害
+                            });
+                        }
+                        player.shootCooldowns['rocket'] = 120;
+                        break;
+                        case 'dart':
+                            player.bullets.push({
+                                x: x,
+                                y: y,
+                                width: 5,
+                                height: 10,
+                                speed: 15 * player.fireRateMultiplier,
+                                vx: Math.cos(trajectoryAngle) * 15,
+                                vy: Math.sin(trajectoryAngle) * 15,
+                                type: 'dart'
+                            });
+                            player.shootCooldowns['dart'] = 10 / player.fireRateMultiplier; // Cooldown frames for dart
+                            break;
+                        case 'bomb':
+                            player.bullets.push({
+                                x: x,
+                                y: y,
+                                width: 15,
+                                height: 15,
+                                speed: 5 * player.fireRateMultiplier,
+                                vx: Math.cos(trajectoryAngle) * 5,
+                                vy: Math.sin(trajectoryAngle) * 5,
+                                type: 'bomb',
+                                frameCount: 0
+                            });
+                            player.shootCooldowns['bomb'] = 15 / player.fireRateMultiplier; // Cooldown frames for bomb
+                            break;
+                        case 'laser':
+                            player.bullets.push({
+                                type: 'laser',
+                                x: 0,
+                                y: player.y,
+                                width: gameWidth,
+                                height: 5,
+                                duration: 10
+                            });
+                            player.laserCooldown = 180; // 3秒冷却
+                            break;
+                        default:
+                            player.bullets.push({
+                                x: x,
+                                y: y,
+                                width: 5,
+                                height: 10,
+                                speed: 10 * player.fireRateMultiplier,
+                                vx: Math.cos(trajectoryAngle) * 10,
+                                vy: Math.sin(trajectoryAngle) * 10,
+                                type: 'basic'
+                            });
+                            player.shootCooldowns['basic'] = 5 / player.fireRateMultiplier; // Cooldown frames for basic
+                            break;
+                    }
+                }
+                // 播放发射音效
+                shootSound.play();
+            }
+        }
+
+        function drawBullets() {
+            player.bullets.forEach(bullet => {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+        }
+
+        function updateBullets() {
+            player.bullets.forEach((bullet, index) => {
+                if (bullet.type === 'rocket') {
+                    // 如果有目标，则追踪目标
+                    if (bullet.target) {
+                        const dx = bullet.target.x - bullet.x;
+                        const dy = bullet.target.y - bullet.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance > 0) {
+                            bullet.vx = (dx / distance) * bullet.speed;
+                            bullet.vy = (dy / distance) * bullet.speed;
+                        }
+                    }
+        
+                    bullet.x += bullet.vx;
+                    bullet.y += bullet.vy;
+                    bullet.lifetime--;
+        
+                    if (bullet.lifetime <= 0) {
+                        // 范围伤害
+                        monsters.forEach(m => {
+                            const dx = m.x - bullet.x;
+                            const dy = m.y - bullet.y;
+                            if (Math.sqrt(dx * dx + dy * dy) < bullet.explosionRadius) {
+                                m.health -= player.attackPower * (2 + player.rocketLevel) * bullet.damageMultiplier; // 提高伤害
+                                if (m.health <= 0) {
+                                    player.score++;
+                                    player.experience += 10;
+                                    enemyKilledSound.play(); // 击杀音效
+                                }
+                            }
+                        });
+                        player.bullets.splice(index, 1);
+                    }
+                } else {
+                    bullet.x += bullet.vx;
+                    bullet.y += bullet.vy;
+                    if (bullet.y < 0 || bullet.y > gameHeight || bullet.x < 0 || bullet.x > gameWidth) {
+                        player.bullets.splice(index, 1);
+                    }
+                }
+            });
+        }
+
+        function updateBoomerangs() {
+            player.boomerangs.forEach((boomerang, index) => {
+                // 添加生命周期
+                if (boomerang.lifetime <= 0) {
+                    player.boomerangs.splice(index, 1);
+                    return;
+                }
+                boomerang.lifetime--;
+
+                // 添加移动轨迹
+                boomerang.angle += 0.1;
+                const orbitRadius = 50 + Math.sin(boomerang.angle * 2) * 10; // 动态轨道半径
+                boomerang.x = player.x + Math.cos(boomerang.angle) * orbitRadius;
+                boomerang.y = player.y + Math.sin(boomerang.angle) * orbitRadius;
+
+                // 检测碰撞（优化后的版本）
+                monsters.forEach((monster, mIndex) => {
+                    if (checkCollision({ x: boomerang.x, y: boomerang.y, width: 10, height: 10 }, monster)) {
+                        monster.health -= player.boomerangDamage;
+                        if (monster.health <= 0) {
+                            player.experience += 10;
+                            enemyKilledSound.play(); // 击杀音效
+                            monsters.splice(mIndex, 1);
+                        }
+                    }
+                });
+            });
+        }
+
+        function spawnMonster() {
+            if (Math.random() < monsterFrequency && !isPaused) {
+                const type = Math.random();
+                let monsterType = 'low';
+                let color = '#00FF00';
+                let baseHealth = 5;
+                let baseDamage = 1;
+                let speed = 1 + player.level * 0.1;
+                let behavior = 'normal'; // 新增行为类型
+        
+                if (type > 0.95) {
+                    monsterType = 'speedster';
+                    color = '#00FFFF';
+                    baseHealth = 10;
+                    baseDamage = 2;
+                    speed = 5 + player.level * 0.2; // 高速移动
+                    behavior = 'speedster';
+                } else if (type > 0.9) {
+                    monsterType = 'jumper';
+                    color = '#FFA500';
+                    baseHealth = 15;
+                    baseDamage = 3;
+                    speed = 2 + player.level * 0.1;
+                    behavior = 'jumper';
+                } else if (type > 0.8) {
+                    monsterType = 'rangedShooter';
+                    color = '#FF6347';
+                    baseHealth = 12;
+                    baseDamage = 2;
+                    speed = 1 + player.level * 0.05;
+                    behavior = 'rangedShooter';
+                } else if (type > 0.7) {
+                    monsterType = 'guidedMissile';
+                    color = '#800080';
+                    baseHealth = 20;
+                    baseDamage = 4;
+                    speed = 1 + player.level * 0.1;
+                    behavior = 'guidedMissile';
+                } else if (type > 0.4) {
+                    monsterType = 'high';
+                    color = '#FF0000';
+                    baseHealth = 10;
+                    baseDamage = 3;
+                }
+        
+                const scaleFactor = 1 + (player.level - 1) * 0.5;
+                const health = baseHealth * scaleFactor;
+                const damage = baseDamage * scaleFactor;
+        
+                const side = Math.floor(Math.random() * 4);
+                let x, y;
+                switch (side) {
+                    case 0:
+                        x = Math.random() * gameWidth;
+                        y = 0;
+                        break;
+                    case 1:
+                        x = gameWidth;
+                        y = Math.random() * gameHeight;
+                        break;
+                    case 2:
+                        x = Math.random() * gameWidth;
+                        y = gameHeight;
+                        break;
+                    case 3:
+                        x = 0;
+                        y = Math.random() * gameHeight;
+                        break;
+                }
+        
+                monsters.push({
+                    x: x,
+                    y: y,
+                    width: 20,
+                    height: 20,
+                    speed: speed,
+                    type: monsterType,
+                    color: color,
+                    health: health,
+                    damage: damage,
+                    behavior: behavior, // 新增行为属性
+                    shootCooldown: 0 // 用于远程攻击的冷却
+                });
+            }
+        }
+
+        function drawMonsters() {
+            monsters.forEach(monster => {
+                ctx.fillStyle = monster.color;
+                ctx.fillRect(monster.x, monster.y, monster.width, monster.height);
+            });
+        }
+
+        function updateMonsters() {
+            monsters.forEach((monster, index) => {
+                if (!isPaused) {
+                    const dx = player.x - monster.x;
+                    const dy = player.y - monster.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+        
+                    if (monster.behavior === 'speedster') {
+                        // 快速直线移动
+                        monster.x += (dx / distance) * monster.speed;
+                        monster.y += (dy / distance) * monster.speed;
+                    } else if (monster.behavior === 'jumper') {
+                        // 周期性跳跃
+                        if (monster.jumpCooldown <= 0) {
+                            const angle = Math.atan2(dy, dx);
+                            monster.jumpX = Math.cos(angle) * 200; // 跳跃距离
+                            monster.jumpY = Math.sin(angle) * 200;
+                            monster.jumpCooldown = 120; // 2秒冷却
+                        } else {
+                            monster.x += monster.jumpX / 20; // 分20帧完成跳跃
+                            monster.y += monster.jumpY / 20;
+                            monster.jumpCooldown--;
+                        }
+                    } else if (monster.behavior === 'rangedShooter') {
+                        // 慢速移动并周期性发射子弹
+                        monster.x += (dx / distance) * monster.speed;
+                        monster.y += (dy / distance) * monster.speed;
+        
+                        if (monster.shootCooldown <= 0) {
+                            // 发射远程子弹
+                            player.bullets.push({
+                                x: monster.x,
+                                y: monster.y,
+                                width: 5,
+                                height: 5,
+                                speed: 10,
+                                vx: (dx / distance) * 10,
+                                vy: (dy / distance) * 10,
+                                type: 'enemyBullet'
+                            });
+                            monster.shootCooldown = 120; // 2秒冷却
+                        } else {
+                            monster.shootCooldown--;
+                        }
+                    } else if (monster.behavior === 'guidedMissile') {
+                        // 发射追踪导弹
+                        if (monster.shootCooldown <= 0) {
+                            player.bullets.push({
+                                x: monster.x,
+                                y: monster.y,
+                                width: 10,
+                                height: 10,
+                                speed: 8,
+                                vx: (dx / distance) * 8,
+                                vy: (dy / distance) * 8,
+                                type: 'guidedMissile'
+                            });
+                            monster.shootCooldown = 180; // 3秒冷却
+                        } else {
+                            monster.shootCooldown--;
+                        }
+                    } else {
+                        // 普通怪兽行为
+                        monster.x += (dx / distance) * monster.speed;
+                        monster.y += (dy / distance) * monster.speed;
+                    }
+        
+                    if (monster.x < 0 || monster.x > gameWidth || monster.y < 0 || monster.y > gameHeight) {
+                        monsters.splice(index, 1);
+                    }
+                }
+            });
+        }
+
+        function checkCollisions() {
+            player.bullets.forEach((bullet, bulletIndex) => {
+                monsters.forEach((monster, monsterIndex) => {
+                    if (
+                        bullet.x < monster.x + monster.width &&
+                        bullet.x + bullet.width > monster.x &&
+                        bullet.y < monster.y + monster.height &&
+                        bullet.y + bullet.height > monster.y
+                    ) {
+                        monster.health -= player.attackPower;
+                        if (bullet.type === 'dart' && Math.random() < player.critChance) {
+                            monster.health -= player.attackPower * 0.5;
+                        }
+                        if (monster.health <= 0) {
+                            player.score++;
+                            player.experience += 10 * player.experienceGainMultiplier;
+                            enemyKilledSound.play();
+                            monsters.splice(monsterIndex, 1);
+                        }
+                        player.bullets.splice(bulletIndex, 1);
+                    }
+                });
+            });
+        
+            monsters.forEach((monster, index) => {
+                if (
+                    player.x < monster.x + monster.width &&
+                    player.x + player.width > monster.x &&
+                    player.y < monster.y + monster.height &&
+                    player.y + player.height > monster.y
+                ) {
+                    player.health -= monster.damage - player.defense;
+                    if (player.health <= 0) {
+                        endGame(false);
+                    }
+                    monsters.splice(index, 1);
+                }
+            });
+        
+            // 检测远程子弹与玩家的碰撞
+            player.bullets.forEach((bullet, bulletIndex) => {
+                if (bullet.type === 'enemyBullet') {
+                    if (
+                        bullet.x < player.x + player.width &&
+                        bullet.x + bullet.width > player.x &&
+                        bullet.y < player.y + player.height &&
+                        bullet.y + bullet.height > player.y
+                    ) {
+                        player.health -= 5; // 远程子弹的伤害
+                        if (player.health <= 0) {
+                            endGame(false);
+                        }
+                        player.bullets.splice(bulletIndex, 1);
+                    }
+                }
+            });
+        }
+
+        function checkLevelUp() {
+            if (player.experience >= player.requiredExperience) {
+                player.level++;
+                player.experience = 0;
+                player.requiredExperience *= 1.5;
+                pauseGame();
+                showUpgradeOptions();
+            }
+        }
+
+        const allUpgrades = [
+            'additionalTrajectory',
+            'doubleFireRate',
+            'clearEnemies',
+            'increaseAttackPower',
+            'increaseCritChance',
+            'increaseDefense',
+            'experienceBoost',
+            'unlockSpecialSkill',
+            'unlockRocket',
+            'upgradeRocket',
+            'unlockBoomerang',
+            'upgradeBoomerang',
+            'unlockLaser'
+        ];
+
+        function applyUpgrade(upgrade) {
+            switch (upgrade) {
+                case 'unlockRocket':
+                    player.weapons.push('rocket');
+                    player.rocketLevel = 1;
+                    break;
+                case 'upgradeRocket':
+                    player.rocketLevel++;
+                    player.attackPower += 1;
+                    player.shootCooldowns['rocket'] = Math.max(100, 240 - player.rocketLevel * 40);
+                    break;
+                case 'unlockBoomerang':
+                    player.boomerangCount = 2;
+                    player.boomerangs = [];
+                    for (let i = 0; i < player.boomerangCount; i++) {
+                        player.boomerangs.push({
+                            x: player.x,
+                            y: player.y,
+                            width: 10,
+                            height: 10,
+                            angle: Math.PI * 2 * i / player.boomerangCount,
+                            damage: player.boomerangDamage,
+                            lifetime: 180 // 添加生命周期
+                        });
+                    }
+                    break;
+                case 'upgradeBoomerang':
+                    player.boomerangCount += 1;
+                    player.boomerangDamage += 1;
+                    player.boomerangs = [];
+                    for (let i = 0; i < player.boomerangCount; i++) {
+                        player.boomerangs.push({
+                            x: player.x,
+                            y: player.y,
+                            width: 10,
+                            height: 10,
+                            angle: Math.PI * 2 * i / player.boomerangCount,
+                            damage: player.boomerangDamage,
+                            lifetime: 180 // 添加生命周期
+                        });
+                    }
+                    break;
+                case 'unlockLaser':
+                    player.weapons.push('laser');
+                    break;
+                case 'additionalTrajectory':
+                    player.trajectories += 1;
+                    break;
+                case 'doubleFireRate':
+                    player.fireRateMultiplier *= 2;
+                    break;
+                case 'clearEnemies':
+                    // 计算所有怪物的经验值
+                    let totalExperience = 0;
+                    monsters.forEach(monster => {
+                        totalExperience += 10 * player.experienceGainMultiplier; // 每个怪物提供10经验
+                    });
+                    player.experience += totalExperience; // 增加经验
+                    monsters.length = 0; // 清除所有怪物
+                    break;
+                case 'increaseAttackPower':
+                    player.attackPower *= 1.5;
+                    break;
+                case 'increaseCritChance':
+                    player.critChance += 0.1;
+                    break;
+                case 'increaseDefense':
+                    player.defense += 1;
+                    break;
+                case 'experienceBoost':
+                    player.experienceGainMultiplier *= 1.5;
+                    break;
+                case 'unlockSpecialSkill':
+                    player.specialSkillUnlocked = true;
+                    break;
+            }
+            hideUpgradeOptions();
+            resumeGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showUpgradeOptions() {
+            const upgradeOverlay = document.getElementById('upgradeOverlay');
+            const upgradeOptionsDiv = document.querySelector('#upgradeOverlay .upgradeOptions');
+            upgradeOptionsDiv.innerHTML = ''; // Clear existing options
+
+            // Shuffle the array to get random order
+            for (let i = allUpgrades.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allUpgrades[i], allUpgrades[j]] = [allUpgrades[j], allUpgrades[i]];
+            }
+
+            // Select the first three upgrades
+            const selectedUpgrades = allUpgrades.slice(0, 3);
+
+            selectedUpgrades.forEach(upgrade => {
+                const button = document.createElement('button');
+                button.className = 'upgradeOption';
+                button.dataset.upgrade = upgrade;
+                button.textContent = formatUpgradeName(upgrade);
+                button.addEventListener('click', () => {
+                    applyUpgrade(upgrade);
+                });
+                upgradeOptionsDiv.appendChild(button);
+            });
+
+            upgradeOverlay.style.display = 'flex';
+        }
+
+        function formatUpgradeName(upgrade) {
+            const translations = {
+                'additionalTrajectory': '额外弹道',
+                'doubleFireRate': '双倍射速',
+                'clearEnemies': '清除敌人',
+                'increaseAttackPower': '提高攻击力',
+                'increaseCritChance': '提高暴击率',
+                'increaseDefense': '提高防御力',
+                'experienceBoost': '经验加成',
+                'unlockSpecialSkill': '解锁特殊技能',
+                'unlockRocket': '解锁火箭',
+                'upgradeRocket': '升级火箭',
+                'unlockBoomerang': '解锁回旋镖',
+                'upgradeBoomerang': '升级回旋镖',
+                'unlockLaser': '解锁激光'
+            };
+            return translations[upgrade];
+        }
+
+        function hideUpgradeOptions() {
+            const upgradeOverlay = document.getElementById('upgradeOverlay');
+            upgradeOverlay.style.display = 'none';
+        }
+
+        function drawScoreAndHealth() {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px Arial';
+            ctx.fillText(`得分: ${player.score}`, 10, 20);
+            ctx.fillText(`生命值: ${player.health}/${player.maxHealth}`, 10, 40);
+            ctx.fillText(`等级: ${player.level}`, 10, 60);
+            ctx.fillText(`经验值: ${player.experience}/${player.requiredExperience}`, 10, 80);
+            ctx.fillText(`当前武器: ${player.weapons.join(', ')}`, 10, 100);
+            ctx.fillText(`弹道数量: ${player.trajectories}`, 10, 120);
+            ctx.fillText(`射速倍数: ${player.fireRateMultiplier}x`, 10, 140);
+        }
+
+        function endGame(win) {
+            const overlay = document.getElementById('overlay');
+            const message = document.getElementById('message');
+            overlay.style.display = 'flex';
+            if (win) {
+                message.textContent = '您赢了！';
+            } else {
+                message.textContent = '游戏结束！';
+            }
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        }
+
+        function resetGame() {
+            player.x = gameWidth / 2;
+            player.y = gameHeight - 50;
+            player.health = 100;
+            player.maxHealth = 100;
+            player.score = 0;
+            player.level = 1;
+            player.experience = 0;
+            player.requiredExperience = 100;
+            player.shootCooldowns = {};
+            player.bullets = [];
+            player.weapons = ['basic'];
+            player.rocketLevel = 0;
+            player.boomerangs = [];
+            player.boomerangCount = 0;
+            player.boomerangDamage = 2;
+            player.laserCooldown = 0;
+            player.moveLeft = false;
+            player.moveRight = false;
+            player.moveUp = false;
+            player.moveDown = false;
+            player.attackPower = 1;
+            player.critChance = 0;
+            player.defense = 0;
+            player.experienceGainMultiplier = 1;
+            player.specialSkillUnlocked = false;
+            player.trajectories = 1;
+            player.fireRateMultiplier = 1;
+            monsters.length = 0;
+            player.weapons.forEach(weapon => {
+                player.shootCooldowns[weapon] = 0;
+            });
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = 'none';
+            startGame();
+        }
+
+        function startGame() {
+            isPaused = false;
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+            requestAnimationFrame(gameLoop);
+        }
+
+
+        let lastFrameTime = 0; // 上一帧的时间戳
+        const targetFPS = 60; // 目标帧率
+        const frameDuration = 1000 / targetFPS; // 每帧的持续时间（毫秒）
+        const frequencyIncreaseRate = 0.000001;
+        
+        function gameLoop(timestamp) {
+            // 如果时间间隔小于目标帧率，则直接返回
+            if (timestamp - lastFrameTime < frameDuration) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+        
+            // 更新时间戳
+            lastFrameTime = timestamp;
+        
+            // 游戏逻辑和绘制
+            if (player.health > 0) {
+                // 清除上一帧的画面
+                ctx.clearRect(0, 0, gameWidth, gameHeight);
+                
+                // 动态调整怪物生成频率
+                if (monsterFrequency < maxMonsterFrequency) {
+                    monsterFrequency += frequencyIncreaseRate;
+                }
+        
+                // 更新游戏状态
+                updatePlayerPosition();
+                updateBullets();
+                updateBoomerangs();
+                spawnMonster();
+                updateMonsters();
+                checkCollisions();
+                checkLevelUp();
+        
+                // 绘制新的画面
+                drawPlayer();
+                drawBullets();
+                drawMonsters();
+                drawScoreAndHealth();
+        
+                // 降低冷却时间
+                Object.keys(player.shootCooldowns).forEach(weapon => {
+                    if (player.shootCooldowns[weapon] > 0) {
+                        player.shootCooldowns[weapon]--;
+                    }
+                });
+                if (player.laserCooldown > 0) {
+                    player.laserCooldown--;
+                }
+        
+                // 自动瞄准并射击
+                autoAimShoot();
+        
+                // 继续游戏循环
+                requestAnimationFrame(gameLoop);
+            } else {
+                // 游戏结束逻辑
+                endGame(false);
+            }
+        }
+        
+        // 启动游戏循环
+        requestAnimationFrame(gameLoop);
+
+        function autoAimShoot() {
+            const nearest = findNearestEnemy();
+            const angle = nearest ? 
+                Math.atan2(nearest.y - player.y, nearest.x - player.x) :
+                Math.PI / 2; // 默认向上射击
+
+            player.weapons.forEach(weapon => {
+                if (player.shootCooldowns[weapon] <= 0) {
+                    shootBullet(
+                        player.x + player.width / 2,
+                        player.y,
+                        angle,
+                        weapon
+                    );
+                }
+            });
+        }
+
+        function findNearestEnemy() {
+            let nearest = null;
+            let minDist = Infinity;
+            monsters.forEach(monster => {
+                const dx = monster.x - player.x;
+                const dy = monster.y - player.y;
+                const dist = dx * dx + dy * dy;
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = monster;
+                }
+            });
+            return nearest;
+        }
+
+        function onKeyDown(event) {
+            if (event.key === 'ArrowLeft' || event.key === 'a') {
+                player.moveLeft = true;
+            } else if (event.key === 'ArrowRight' || event.key === 'd') {
+                player.moveRight = true;
+            } else if (event.key === 'ArrowUp' || event.key === 'w') {
+                player.moveUp = true;
+            } else if (event.key === 'ArrowDown' || event.key === 's') {
+                player.moveDown = true;
+            } else if (event.key === 'j' || event.key === 'J') {
+                // Automatically level up and show upgrade options
+                player.level++;
+                player.experience = 0;
+                player.requiredExperience *= 1.5;
+                pauseGame();
+                showUpgradeOptions();
+            }
+        }
+
+        function onKeyUp(event) {
+            if (event.key === 'ArrowLeft' || event.key === 'a') {
+                player.moveLeft = false;
+            } else if (event.key === 'ArrowRight' || event.key === 'd') {
+                player.moveRight = false;
+            } else if (event.key === 'ArrowUp' || event.key === 'w') {
+                player.moveUp = false;
+            } else if (event.key === 'ArrowDown' || event.key === 's') {
+                player.moveDown = false;
+            }
+        }
+
+        function pauseGame() {
+            isPaused = true;
+            window.removeEventListener('keydown', onKeyDown);
+            window.removeEventListener('keyup', onKeyUp);
+        }
+
+        function resumeGame() {
+            isPaused = false;
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+        }
+
+        let isPaused = false;
+
+        document.getElementById('newGameButton').addEventListener('click', resetGame);
+        document.getElementById('restartButton').addEventListener('click', resetGame);
+
+        startGame();
+    </script>
+</body>
+</html>
